@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Create virtualenv and install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install maturin pytest
+      - name: Build fastdigest
+        run: |
+          source venv/bin/activate
+          maturin develop --release
+      - name: Run tests
+        run: |
+          source venv/bin/activate
+          pytest

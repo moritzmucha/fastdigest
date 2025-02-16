@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "fastdigest"
+version = "0.1.0"
+description = "A fast t-digest library for Python built on Rust."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Moritz Mucha", email = "fastdigestlibrary@gmail.com" }
+]
+keywords = ["pyo3", "rust", "t-digest", "tdigest", "statistics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Repository = "https://github.com/moritzmucha/fastdigest"
+
+[tool.maturin]
+include = [
+  "fastdigest.pyi",
+  "benchmark.py",
+  "LICENSE",
+  "THIRD-PARTY-NOTICES",
+  "README.md"
+]
+bindings = "pyo3"
