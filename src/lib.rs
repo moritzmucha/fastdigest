@@ -139,21 +139,32 @@ impl PyTDigest {
         })
     }
 
-    /// Returns the number of centroids.
-    pub fn n_centroids(&self) -> PyResult<usize> {
+    /// Getter property: returns the total number of data points ingested.
+    #[getter(n_values)]
+    pub fn get_n_values(&self) -> PyResult<u64> {
+        let total_weight: f64 =
+            self.digest.centroids().iter().map(|c| c.weight).sum();
+        Ok(total_weight.round() as u64)
+    }
+
+    /// Getter property: returns the number of centroids.
+    #[getter(n_centroids)]
+    pub fn get_n_centroids(&self) -> PyResult<usize> {
         Ok(self.digest.centroids().len())
     }
 
-    /// Special method: len(TDigest) returns the number of centroids.
-    #[pyo3(name="__len__")]
+    /// Magic method: len(TDigest) returns the number of centroids.
     pub fn __len__(&self) -> PyResult<usize> {
-        self.n_centroids()
+        self.get_n_centroids()
     }
 
-    /// Returns a string representation.
-    #[pyo3(name="__repr__")]
+    /// Magic method: repr(TDigest)/str(TDigest) returns a string representation.
     fn __repr__(&self) -> PyResult<String> {
-        Ok(format!("TDigest(n_centroids={})", self.n_centroids()?))
+        Ok(format!(
+            "TDigest(n_values={}, n_centroids={})",
+            self.get_n_values()?,
+            self.get_n_centroids()?
+        ))
     }
 }
 

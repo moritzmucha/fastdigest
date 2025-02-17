@@ -38,16 +38,18 @@ class TDigest:
 
     def compress(self, max_centroids: int) -> None:
         """
-        Compress the TDigest in place to have at most `max_centroids` centroids.
+        Compress the TDigest in-place to `max_centroids`.
 
         :param max_centroids: Maximum number of centroids allowed
+
+        **Note:** compression below `min(n_values, 3)` centroids is not possible.
         """
         ...
 
     def trimmed_mean(self, q1: float, q2: float) -> float:
         """
-        Compute the trimmed mean (truncated mean) of the data,
-        excluding values below the q1 quantile and above the q2 quantile.
+        Estimate the trimmed mean (truncated mean) of the data,
+        excluding values below the `q1` and above the `q2` quantiles.
 
         :param q1: Lower quantile threshold (0 <= q1 < q2)
         :param q2: Upper quantile threshold (q1 < q2 <= 1)
@@ -72,15 +74,14 @@ class TDigest:
         Construct a TDigest from a dictionary representation.
 
         The dictionary must have a key "centroids" mapping to a list of centroids.
-        Each centroid should be a dictionary with keys "m" (float representing mean)
-        and "c" (float representing weight or count).
+        Each centroid should be a dictionary with keys "m" (float) and "c" (float).
 
         :param tdigest_dict: Dictionary with centroids
         :return: TDigest instance
         """
         ...
 
-    def n_centroids(self) -> int:
+    def __len__(self) -> int:
         """
         Return the number of centroids in the TDigest.
 
@@ -88,18 +89,10 @@ class TDigest:
         """
         ...
 
-    def __len__(self) -> int:
-        """
-        Return the number of centroids in the TDigest; alias for `n_centroids()`.
-
-        :return: Number of centroids
-        """
-        ...
-
     def __repr__(self) -> str:
         """
-        Return the string representation of the TDigest.
+        Return a string representation summarizing the TDigest.
 
-        :return: "TDigest(n_centroids)"
+        :return: string representation of the TDigest
         """
         ...

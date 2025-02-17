@@ -87,7 +87,8 @@ def test_to_from_dict():
 def test_repr():
     digest = TDigest([1.0, 2.0, 3.0])
     rep = repr(digest)
-    assert rep == "TDigest(n_centroids=3)", f"__repr__ output unexpected: {rep}"
+    assert rep == "TDigest(n_values=3, n_centroids=3)", \
+        f"__repr__ output unexpected: {rep}"
 
 if __name__ == '__main__':
     test_init()
