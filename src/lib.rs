@@ -24,6 +24,9 @@ impl PyTDigest {
 
     /// Estimates the quantile for a given cumulative probability `q`.
     pub fn estimate_quantile(&self, q: f64) -> PyResult<f64> {
+        if q < 0.0 || q > 1.0 {
+            return Err(PyValueError::new_err("q must be between 0 and 1."));
+        }
         Ok(self.digest.estimate_quantile(q))
     }
 
