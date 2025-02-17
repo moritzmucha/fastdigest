@@ -19,8 +19,9 @@ def test_estimate_quantile():
     q = 0.5
     quantile_est = digest.estimate_quantile(q)
     expected = 1 + q * (100 - 1)  # 1 + 0.5*99 = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), \
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected ~{expected}, got {quantile_est}"
+    )
 
 def test_estimate_rank():
     digest = TDigest(range(1, 101))
@@ -29,8 +30,9 @@ def test_estimate_rank():
     # For uniform data, expected rank is (x - min)/(max - min) = (50-1)/(100-1)
     expected = (50 - 1) / (100 - 1)
     assert 0 <= rank_est <= 1, "Rank should be between 0 and 1"
-    assert math.isclose(rank_est, expected, rel_tol=1e-3), \
+    assert math.isclose(rank_est, expected, rel_tol=1e-3), (
         f"Expected ~{expected}, got {rank_est}"
+    )
 
 def test_merge():
     # Create two TDigest instances from non-overlapping ranges
@@ -40,8 +42,9 @@ def test_merge():
     # The median of the merged data should be around 50.5
     quantile_est = merged.estimate_quantile(0.5)
     expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), \
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected median ~{expected}, got {quantile_est}"
+    )
 
 def test_compress():
     digest = TDigest(range(1, 101))
@@ -49,14 +52,16 @@ def test_compress():
     # the implementation will never go below min(N, 3) centroids.
     digest.compress(5)
     compressed_centroids = len(digest)
-    assert 3 <= compressed_centroids <= 5, \
+    assert 3 <= compressed_centroids <= 5, (
         f"Expected between 3 and 5 centroids, got {compressed_centroids}"
+    )
 
     # Check that quantile estimates remain plausible after compression
     quantile_est = digest.estimate_quantile(0.5)
     expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), \
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected median ~{expected}, got {quantile_est}"
+    )
 
 def test_trimmed_mean():
     values = list(range(101))
@@ -65,8 +70,9 @@ def test_trimmed_mean():
     # 1st percentile is 1.01, 99th percentile is 99.99. (2 + 99) / 2 = 50.5
     trimmed = digest.trimmed_mean(0.01, 0.99)
     expected = 50.5
-    assert math.isclose(trimmed, expected, rel_tol=1e-3), \
+    assert math.isclose(trimmed, expected, rel_tol=1e-3), (
         f"Expected trimmed mean ~{expected}, got {trimmed}"
+    )
 
     # Ensure that providing invalid quantiles raises a ValueError.
     with pytest.raises(ValueError):
@@ -81,16 +87,18 @@ def test_to_from_dict():
     for q in [0.25, 0.5, 0.75]:
         orig = digest.estimate_quantile(q)
         new_val = new_digest.estimate_quantile(q)
-        assert math.isclose(orig, new_val, rel_tol=1e-9), \
+        assert math.isclose(orig, new_val, rel_tol=1e-9), (
             f"Quantile {q} mismatch: original {orig} vs new {new_val}"
+        )
 
 def test_repr():
     digest = TDigest([1.0, 2.0, 3.0])
     rep = repr(digest)
-    assert rep == "TDigest(n_values=3, n_centroids=3)", \
+    assert rep == "TDigest(n_values=3, n_centroids=3)", (
         f"__repr__ output unexpected: {rep}"
+    )
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_init()
     test_estimate_quantile()
     test_estimate_rank()
