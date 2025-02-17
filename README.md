@@ -16,7 +16,7 @@
   - [Merging Two TDigest Objects](#merging-two-tdigest-objects)
   - [Compressing the TDigest](#compressing-the-tdigest)
   - [Estimating Quantiles and Ranks](#estimating-quantiles-and-ranks)
-  - [Calculating the Trimmed Mean](#calculating-the-trimmed-mean)
+  - [Estimating the Trimmed Mean](#estimating-the-trimmed-mean)
   - [Exporting a TDigest to a Dict](#exporting-a-tdigest-to-a-dict)
   - [Restoring a TDigest from a Dict](#restoring-a-tdigest-from-a-dict)
 - [Benchmarks](#benchmarks)
@@ -140,9 +140,9 @@ confidence_pct = 100 * confidence
 print(f"Confidence at 2.0 standard deviations: {confidence_pct:.2f}%")
 ```
 
-### Calculating the Trimmed Mean
+### Estimating the Trimmed Mean
 
-Calculate the truncated mean, i.e. the arithmetic mean of all data points between two quantiles:
+Estimate the truncated mean, i.e. the arithmetic mean of all data points between two quantiles:
 
 ```python
 from fastdigest import TDigest
