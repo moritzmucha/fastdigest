@@ -9,6 +9,24 @@ class TDigest:
         """
         ...
 
+    @property
+    def n_centroids(self) -> int:
+        """
+        Number of centroids in the TDigest.
+
+        :return: Number of centroids
+        """
+        ...
+
+    @property
+    def n_values(self) -> int:
+        """
+        Total number of data points ingested.
+
+        :return: The sum of all centroid weights, rounded to the nearest integer.
+        """
+        ...
+
     def estimate_quantile(self, q: float) -> float:
         """
         Estimate the value at a given cumulative probability (quantile).

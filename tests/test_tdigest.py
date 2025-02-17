@@ -12,6 +12,37 @@ def test_init():
     with pytest.raises(ValueError):
         TDigest([])
 
+def test_n_values():
+    digest = TDigest([1.0, 2.0, 3.0])
+    n_values = digest.n_values
+    assert isinstance(n_values, int), (
+        f"Expected int, got {type(n_values).__name__}"
+    )
+    assert n_values == 3, f"Expected 3, got {n_values}"
+
+def test_n_centroids():
+    digest = TDigest([1.0, 2.0, 3.0])
+    n_centroids = digest.n_centroids
+    assert isinstance(n_centroids, int), (
+        f"Expected int, got {type(n_centroids).__name__}"
+    )
+    assert n_centroids == 3, f"Expected 3, got {n_centroids}"
+
+def test_len():
+    digest = TDigest([1.0, 2.0, 3.0])
+    length = len(digest)
+    assert isinstance(length, int), (
+        f"Expected int, got {type(length).__name__}"
+    )
+    assert length == 3, f"Expected 3, got {length}"
+
+def test_repr():
+    digest = TDigest([1.0, 2.0, 3.0])
+    rep = repr(digest)
+    assert rep == "TDigest(n_values=3, n_centroids=3)", (
+        f"__repr__ output unexpected: {rep}"
+    )
+
 def test_estimate_quantile():
     # Create a digest from 1..100
     digest = TDigest(range(1, 101))
@@ -81,7 +112,9 @@ def test_trimmed_mean():
 def test_to_from_dict():
     digest = TDigest(range(1, 101))
     digest_dict = digest.to_dict()
-    assert isinstance(digest_dict, dict)
+    assert isinstance(digest_dict, dict), (
+        f"Expected dict, got {type(digest_dict).__name__}"
+    )
     new_digest = TDigest.from_dict(digest_dict)
     # Verify that quantile estimates match within a reasonable tolerance
     for q in [0.25, 0.5, 0.75]:
@@ -91,19 +124,15 @@ def test_to_from_dict():
             f"Quantile {q} mismatch: original {orig} vs new {new_val}"
         )
 
-def test_repr():
-    digest = TDigest([1.0, 2.0, 3.0])
-    rep = repr(digest)
-    assert rep == "TDigest(n_values=3, n_centroids=3)", (
-        f"__repr__ output unexpected: {rep}"
-    )
-
 if __name__ == "__main__":
     test_init()
+    test_n_values()
+    test_n_centroids()
+    test_len()
+    test_repr()
     test_estimate_quantile()
     test_estimate_rank()
     test_merge()
     test_compress()
     test_trimmed_mean()
     test_to_from_dict()
-    test_repr()
