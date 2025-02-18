@@ -114,6 +114,19 @@ def test_to_from_dict():
         f"Expected dict, got {type(digest_dict).__name__}"
     )
     new = TDigest.from_dict(digest_dict)
+    
+    # Sanity checks
+    assert isinstance(new, TDigest), (
+        f"Expected TDigest, got {type(new).__name__}"
+    )
+    assert new.n_values == original.n_values, (
+        f"Expected {original.n_values} values, got {new.n_values}"
+    )
+    assert new.n_centroids == original.n_centroids, (
+        f"Expected {original.n_centroids} centroids, "
+        f"got {new.n_centroids}"
+    )
+
     # Verify that quantile estimates match within a reasonable tolerance
     for q in [0.25, 0.5, 0.75]:
         orig_val = original.estimate_quantile(q)
