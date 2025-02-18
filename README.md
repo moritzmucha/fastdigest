@@ -5,39 +5,45 @@
 [![Build](https://github.com/moritzmucha/fastdigest/actions/workflows/build.yml/badge.svg)](https://github.com/moritzmucha/fastdigest/actions)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-***fastDigest*** is a Python extension module that provides a lightning-fast implementation of the t‑digest algorithm using Rust and PyO3. Built on top of the efficient *tdigests* library, *fastDigest* enables lightweight and accurate quantile and rank estimation for streaming data.
+***fastDigest*** is a Python extension module that provides a lightning-fast implementation of the t‑digest algorithm. Built on top of the efficient *tdigests* Rust library, *fastDigest* enables lightweight and accurate quantile and rank estimation for streaming data.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
+  - [Installing from PyPI](#installing-from-pypi)
+  - [Installing from source](#installing-from-source)
 - [Usage](#usage)
-  - [Creating a TDigest from Values](#creating-a-tdigest-from-values)
-  - [Merging Two TDigest Objects](#merging-two-tdigest-objects)
+  - [Creating a TDigest from values](#creating-a-tdigest-from-values)
+  - [Merging two TDigest objects](#merging-two-tdigest-objects)
   - [Compressing the TDigest](#compressing-the-tdigest)
-  - [Estimating Quantiles and Ranks](#estimating-quantiles-and-ranks)
-  - [Estimating the Trimmed Mean](#estimating-the-trimmed-mean)
-  - [Exporting a TDigest to a Dict](#exporting-a-tdigest-to-a-dict)
-  - [Restoring a TDigest from a Dict](#restoring-a-tdigest-from-a-dict)
+  - [Estimating quantiles and ranks](#estimating-quantiles-and-ranks)
+  - [Estimating the trimmed mean](#estimating-the-trimmed-mean)
+  - [Exporting a TDigest to a dict](#exporting-a-tdigest-to-a-dict)
+  - [Restoring a TDigest from a dict](#restoring-a-tdigest-from-a-dict)
 - [Benchmarks](#benchmarks)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
 ## Features
 
-- **Quantile & Rank Estimation**: Compute highly accurate quantile and rank estimates from large datasets with a low memory footprint.
-- **Trimmed Mean**: Calculate the truncated mean in close approximation.
-- **Merging Digests**: Merge two t‑digests into one. This can be used to handle streaming data.
-- **Flexible Compression**: Decide when and how much t-digests are compressed.
-- **Serialization**: Use `to_dict`/`from_dict` methods (e.g. for JSON conversion) or the `pickle` module for easy serialization.
+- **Quantile & rank estimation**: Compute highly accurate quantile and rank estimates from large datasets with a low memory footprint.
+- **Trimmed mean**: Calculate the truncated mean in close approximation.
+- **Merging digests**: Merge two t‑digests into one. This can be used to handle streaming data.
+- **Flexible compression**: Decide when and how much t-digests are compressed.
+- **Serialization**: Use the `to_dict`/`from_dict` methods (e.g. for JSON conversion) or the `pickle` module for easy serialization.
 
 ## Installation
+
+### Installing from PyPI
 
 Compiled wheels are available on PyPI. Simply install via pip:
 
 ```bash
 pip install fastdigest
 ```
+
+### Installing from source
 
 If you want to build and install *fastDigest* from source, you need **Rust** and **maturin**.
 
@@ -58,7 +64,7 @@ pip install target/wheels/fastdigest-0.3.0-<platform-tag>.whl
 
 ## Usage
 
-### Creating a TDigest from Values
+### Creating a TDigest from values
 
 Initialize a TDigest directly from any non‑empty sequence of numbers:
 
@@ -80,7 +86,7 @@ array = np.linspace(0, 100, 101)
 digest = TDigest(array)
 ```
 
-### Merging Two TDigest Objects
+### Merging two TDigest objects
 
 Merge two digests to combine their data:
 
@@ -105,7 +111,7 @@ digest.compress(10)  # compress to 10 (or fewer) centroids
 print(f" After: {len(digest)} centroids")
 ```
 
-### Estimating Quantiles and Ranks
+### Estimating quantiles and ranks
 
 Estimate the value at a given quantile:
 
@@ -140,7 +146,7 @@ confidence_pct = 100 * confidence
 print(f"Confidence at 2.0 standard deviations: {confidence_pct:.2f}%")
 ```
 
-### Estimating the Trimmed Mean
+### Estimating the trimmed mean
 
 Estimate the truncated mean, i.e. the arithmetic mean of all data points between two quantiles:
 
@@ -153,7 +159,7 @@ digest = TDigest(values)
 digest.trimmed_mean(0.1, 0.9)
 ```
 
-### Exporting a TDigest to a Dict
+### Exporting a TDigest to a dict
 
 Obtain a dictionary representation of the digest for serialization or interoperability:
 
@@ -167,7 +173,7 @@ tdigest_dict = digest.to_dict()
 print(json.dumps(tdigest_dict, indent=2))
 ```
 
-### Restoring a TDigest from a Dict
+### Restoring a TDigest from a dict
 
 Construct a TDigest from a dict containing a list of centroids. Each centroid is itself a dict with keys "m" (mean) and "c" (weight or count):
 
@@ -183,6 +189,8 @@ data = {
 }
 digest = TDigest.from_dict(data)
 ```
+
+If you have been working with the older *tdigest* Python library, you may be glad to hear that dicts created by its `to_dict` method can also natively be used by *fastDigest*.
 
 ## Benchmarks
 
