@@ -12,7 +12,21 @@ license = { file = "LICENSE" }
 authors = [
   { name = "Moritz Mucha", email = "fastdigestlibrary@gmail.com" }
 ]
-keywords = ["pyo3", "rust", "t-digest", "tdigest", "statistics"]
+keywords = [
+  "t-digest",
+  "tdigest",
+  "statistics",
+  "quantile",
+  "percentile",
+  "online learning",
+  "streaming",
+  "big data",
+  "aggregation",
+  "real-time analytics",
+  "anomaly detection",
+  "rust",
+  "pyo3"
+]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.8",
