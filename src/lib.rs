@@ -167,7 +167,7 @@ impl PyTDigest {
     }
 
     /// Magic method: repr/str(TDigest) returns a string representation.
-    fn __repr__(&self) -> PyResult<String> {
+    pub fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "TDigest(n_values={}, n_centroids={})",
             self.get_n_values()?,
