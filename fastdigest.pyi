@@ -1,4 +1,4 @@
-from typing import Dict, List, Sequence, Any
+from typing import Dict, List, Sequence, Tuple, Any
 
 class TDigest:
     def __init__(self, values: Sequence[float]) -> None:
@@ -113,5 +113,14 @@ class TDigest:
         Return a string representation summarizing the TDigest.
 
         :return: String representation of the TDigest
+        """
+        ...
+
+    def __reduce__(self) -> Tuple[object, Tuple[Any, ...]]:
+        """
+        Enables pickle support by returning a tuple (callable, args) that
+        can be used to reconstruct the TDigest.
+
+        :return: Tuple of (reconstruction function, arguments)
         """
         ...

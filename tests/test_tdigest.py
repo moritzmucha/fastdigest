@@ -1,4 +1,5 @@
 import math
+import pickle
 import pytest
 from fastdigest import TDigest
 
@@ -107,14 +108,7 @@ def test_trimmed_mean():
     with pytest.raises(ValueError):
         digest.trimmed_mean(0.9, 0.1)
 
-def test_to_from_dict():
-    original = TDigest(range(1, 101))
-    digest_dict = original.to_dict()
-    assert isinstance(digest_dict, dict), (
-        f"Expected dict, got {type(digest_dict).__name__}"
-    )
-    new = TDigest.from_dict(digest_dict)
-    
+def check_tdigest_equality(original, new):
     # Sanity checks
     assert isinstance(new, TDigest), (
         f"Expected TDigest, got {type(new).__name__}"
@@ -135,6 +129,21 @@ def test_to_from_dict():
             f"Quantile {q} mismatch: original {orig_val} vs new {new_val}"
         )
 
+def test_to_from_dict():
+    original = TDigest(range(1, 101))
+    digest_dict = original.to_dict()
+    assert isinstance(digest_dict, dict), (
+        f"Expected dict, got {type(digest_dict).__name__}"
+    )
+    new = TDigest.from_dict(digest_dict)
+    check_tdigest_equality(original, new)
+
+def test_pickle_unpickle():
+    original = TDigest(range(1, 101))
+    dumped = pickle.dumps(original)
+    unpickled = pickle.loads(dumped)
+    check_tdigest_equality(original, unpickled)
+
 if __name__ == "__main__":
     test_init()
     test_n_values()
@@ -147,3 +156,4 @@ if __name__ == "__main__":
     test_compress()
     test_trimmed_mean()
     test_to_from_dict()
+    test_pickle_unpickle()

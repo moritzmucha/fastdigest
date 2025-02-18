@@ -1,6 +1,6 @@
 use pyo3::exceptions::{PyKeyError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::{PyDict, PyList, PyTuple};
 use tdigests::{Centroid, TDigest};
 
 #[pyclass(name = "TDigest", module = "fastdigest")]
@@ -106,7 +106,7 @@ impl PyTDigest {
             centroid_list.append(centroid_dict)?;
         }
         dict.set_item("centroids", centroid_list)?;
-        Ok(dict.into_any().unbind())
+        Ok(dict.into())
     }
 
     /// Reconstructs a TDigest from a dictionary.
@@ -173,6 +173,21 @@ impl PyTDigest {
             self.get_n_values()?,
             self.get_n_centroids()?
         ))
+    }
+
+    /// Returns a tuple (callable, args) so that pickle can reconstruct
+    /// the object via:
+    ///     TDigest.from_dict(state)
+    pub fn __reduce__(&self, py: Python) -> PyResult<PyObject> {
+        // Get the dict state using to_dict.
+        let state = self.to_dict(py)?;
+        // Retrieve the class type from the Python interpreter.
+        let cls = py.get_type::<PyTDigest>();
+        let from_dict = cls.getattr("from_dict")?;
+        let args = PyTuple::new(py, &[state])?;
+        let recon_tuple =
+            PyTuple::new(py, &[from_dict, args.into_any()])?;
+        Ok(recon_tuple.into())
     }
 }
 
