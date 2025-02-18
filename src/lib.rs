@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use tdigests::{Centroid, TDigest};
 
-#[pyclass(name = "TDigest", module = "fastdigest")]
+#[pyclass(name="TDigest", module="fastdigest")]
 struct PyTDigest {
     digest: TDigest,
 }
@@ -22,6 +22,33 @@ impl PyTDigest {
         }
     }
 
+    /// Getter property: returns the total number of data points ingested.
+    #[getter(n_values)]
+    pub fn get_n_values(&self) -> PyResult<u64> {
+        let total_weight: f64 =
+            self.digest.centroids().iter().map(|c| c.weight).sum();
+        Ok(total_weight.round() as u64)
+    }
+
+    /// Getter property: returns the number of centroids.
+    #[getter(n_centroids)]
+    pub fn get_n_centroids(&self) -> PyResult<usize> {
+        Ok(self.digest.centroids().len())
+    }
+
+    /// Merges this digest with another, returning a new TDigest.
+    pub fn merge(&self, other: &Self) -> PyResult<Self> {
+        Ok(Self {
+            digest: self.digest.merge(&other.digest)
+        })
+    }
+
+    /// Compresses the digest (in‑place) to have at most `max_centroids`
+    /// (but at least `min(n_values, 3)`) centroids.
+    pub fn compress(&mut self, max_centroids: usize) {
+        self.digest.compress(max_centroids);
+    }
+
     /// Estimates the quantile for a given cumulative probability `q`.
     pub fn estimate_quantile(&self, q: f64) -> PyResult<f64> {
         if q < 0.0 || q > 1.0 {
@@ -33,19 +60,6 @@ impl PyTDigest {
     /// Estimates the rank (cumulative probability) of a given value `x`.
     pub fn estimate_rank(&self, x: f64) -> PyResult<f64> {
         Ok(self.digest.estimate_rank(x))
-    }
-
-    /// Merges this digest with another, returning a new TDigest.
-    pub fn merge(&self, other: &Self) -> PyResult<Self> {
-        Ok(Self {
-            digest: self.digest.merge(&other.digest),
-        })
-    }
-
-    /// Compresses the digest (in‑place) to have at most `max_centroids`
-    /// (but at least `min(n_values, 3)`) centroids.
-    pub fn compress(&mut self, max_centroids: usize) {
-        self.digest.compress(max_centroids);
     }
 
     /// Returns the trimmed mean of the digest between the q1 and q2 quantiles.
@@ -147,18 +161,19 @@ impl PyTDigest {
         })
     }
 
-    /// Getter property: returns the total number of data points ingested.
-    #[getter(n_values)]
-    pub fn get_n_values(&self) -> PyResult<u64> {
-        let total_weight: f64 =
-            self.digest.centroids().iter().map(|c| c.weight).sum();
-        Ok(total_weight.round() as u64)
-    }
-
-    /// Getter property: returns the number of centroids.
-    #[getter(n_centroids)]
-    pub fn get_n_centroids(&self) -> PyResult<usize> {
-        Ok(self.digest.centroids().len())
+    /// Returns a tuple (callable, args) so that pickle can reconstruct
+    /// the object via:
+    ///     TDigest.from_dict(state)
+    pub fn __reduce__(&self, py: Python) -> PyResult<PyObject> {
+        // Get the dict state using to_dict.
+        let state = self.to_dict(py)?;
+        // Retrieve the class type from the Python interpreter.
+        let cls = py.get_type::<PyTDigest>();
+        let from_dict = cls.getattr("from_dict")?;
+        let args = PyTuple::new(py, &[state])?;
+        let recon_tuple =
+            PyTuple::new(py, &[from_dict, args.into_any()])?;
+        Ok(recon_tuple.into())
     }
 
     /// Magic method: len(TDigest) returns the number of centroids.
@@ -173,21 +188,6 @@ impl PyTDigest {
             self.get_n_values()?,
             self.get_n_centroids()?
         ))
-    }
-
-    /// Returns a tuple (callable, args) so that pickle can reconstruct
-    /// the object via:
-    ///     TDigest.from_dict(state)
-    pub fn __reduce__(&self, py: Python) -> PyResult<PyObject> {
-        // Get the dict state using to_dict.
-        let state = self.to_dict(py)?;
-        // Retrieve the class type from the Python interpreter.
-        let cls = py.get_type::<PyTDigest>();
-        let from_dict = cls.getattr("from_dict")?;
-        let args = PyTuple::new(py, &[state])?;
-        let recon_tuple =
-            PyTuple::new(py, &[from_dict, args.into_any()])?;
-        Ok(recon_tuple.into())
     }
 }
 

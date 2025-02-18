@@ -10,15 +10,6 @@ class TDigest:
         ...
 
     @property
-    def n_centroids(self) -> int:
-        """
-        Number of centroids in the TDigest.
-
-        :return: Number of centroids
-        """
-        ...
-
-    @property
     def n_values(self) -> int:
         """
         Total number of data points ingested.
@@ -27,21 +18,12 @@ class TDigest:
         """
         ...
 
-    def estimate_quantile(self, q: float) -> float:
+    @property
+    def n_centroids(self) -> int:
         """
-        Estimate the value at a given cumulative probability (quantile).
+        Number of centroids in the TDigest.
 
-        :param q: Float between 0 and 1 representing cumulative probability
-        :return: Estimated quantile value
-        """
-        ...
-
-    def estimate_rank(self, x: float) -> float:
-        """
-        Estimate the cumulative probability (rank) of a given value x.
-
-        :param x: Value for which to compute the rank
-        :return: Float between 0 and 1 representing cumulative probability
+        :return: Number of centroids
         """
         ...
 
@@ -62,6 +44,24 @@ class TDigest:
         **Note:** there is a lower limit of `min(n_values, 3)` centroids.
 
         :param max_centroids: Maximum number of centroids allowed
+        """
+        ...
+
+    def estimate_quantile(self, q: float) -> float:
+        """
+        Estimate the value at a given cumulative probability (quantile).
+
+        :param q: Float between 0 and 1 representing cumulative probability
+        :return: Estimated quantile value
+        """
+        ...
+
+    def estimate_rank(self, x: float) -> float:
+        """
+        Estimate the cumulative probability (rank) of a given value x.
+
+        :param x: Value for which to compute the rank
+        :return: Float between 0 and 1 representing cumulative probability
         """
         ...
 
@@ -100,6 +100,15 @@ class TDigest:
         """
         ...
 
+    def __reduce__(self) -> Tuple[object, Tuple[Any, ...]]:
+        """
+        Enables pickle support by returning a tuple (callable, args) that
+        can be used to reconstruct the TDigest.
+
+        :return: Tuple of (reconstruction function, arguments)
+        """
+        ...
+
     def __len__(self) -> int:
         """
         Return the number of centroids in the TDigest.
@@ -113,14 +122,5 @@ class TDigest:
         Return a string representation summarizing the TDigest.
 
         :return: String representation of the TDigest
-        """
-        ...
-
-    def __reduce__(self) -> Tuple[object, Tuple[Any, ...]]:
-        """
-        Enables pickle support by returning a tuple (callable, args) that
-        can be used to reconstruct the TDigest.
-
-        :return: Tuple of (reconstruction function, arguments)
         """
         ...

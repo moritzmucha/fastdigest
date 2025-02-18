@@ -3,6 +3,33 @@ import pickle
 import pytest
 from fastdigest import TDigest
 
+
+def check_tdigest_equality(
+        original: TDigest,
+        new: TDigest,
+        rel_tol: float=1e-9
+    ):
+    # Sanity checks
+    assert isinstance(new, TDigest), (
+        f"Expected TDigest, got {type(new).__name__}"
+    )
+    assert new.n_values == original.n_values, (
+        f"Expected {original.n_values} values, got {new.n_values}"
+    )
+    assert new.n_centroids == original.n_centroids, (
+        f"Expected {original.n_centroids} centroids, "
+        f"got {new.n_centroids}"
+    )
+
+    # Verify that quantile estimates match within a reasonable tolerance
+    for q in [0.25, 0.5, 0.75]:
+        orig_val = original.estimate_quantile(q)
+        new_val = new.estimate_quantile(q)
+        assert math.isclose(orig_val, new_val, rel_tol=rel_tol), (
+            f"Quantile {q} mismatch: original {orig_val} vs new {new_val}"
+        )
+
+
 def test_init():
     # Test proper initialization with a non-empty list
     values = [1.0, 2.0, 3.0, 4.0, 5.0]
@@ -28,43 +55,6 @@ def test_n_centroids():
         f"Expected int, got {type(n_centroids).__name__}"
     )
     assert n_centroids == 3, f"Expected 3, got {n_centroids}"
-
-def test_len():
-    digest = TDigest([1.0, 2.0, 3.0])
-    length = len(digest)
-    assert isinstance(length, int), (
-        f"Expected int, got {type(length).__name__}"
-    )
-    assert length == 3, f"Expected 3, got {length}"
-
-def test_repr():
-    digest = TDigest([1.0, 2.0, 3.0])
-    rep = repr(digest)
-    assert rep == "TDigest(n_values=3, n_centroids=3)", (
-        f"__repr__ output unexpected: {rep}"
-    )
-
-def test_estimate_quantile():
-    # Create a digest from 1..100
-    digest = TDigest(range(1, 101))
-    # For a uniformly distributed dataset, the median should be near 50.5
-    q = 0.5
-    quantile_est = digest.estimate_quantile(q)
-    expected = 1 + q * (100 - 1)  # 1 + 0.5*99 = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected ~{expected}, got {quantile_est}"
-    )
-
-def test_estimate_rank():
-    digest = TDigest(range(1, 101))
-    x = 50
-    rank_est = digest.estimate_rank(x)
-    # For uniform data, expected rank is (x - min)/(max - min)
-    expected = (50 - 1) / (100 - 1)
-    assert 0 <= rank_est <= 1, "Rank should be between 0 and 1"
-    assert math.isclose(rank_est, expected, rel_tol=1e-3), (
-        f"Expected ~{expected}, got {rank_est}"
-    )
 
 def test_merge():
     # Create two TDigest instances from non-overlapping ranges
@@ -94,6 +84,28 @@ def test_compress():
         f"Expected median ~{expected}, got {quantile_est}"
     )
 
+def test_estimate_quantile():
+    # Create a digest from 1..100
+    digest = TDigest(range(1, 101))
+    # For a uniformly distributed dataset, the median should be near 50.5
+    q = 0.5
+    quantile_est = digest.estimate_quantile(q)
+    expected = 1 + q * (100 - 1)  # 1 + 0.5*99 = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected ~{expected}, got {quantile_est}"
+    )
+
+def test_estimate_rank():
+    digest = TDigest(range(1, 101))
+    x = 50
+    rank_est = digest.estimate_rank(x)
+    # For uniform data, expected rank is (x - min)/(max - min)
+    expected = (50 - 1) / (100 - 1)
+    assert 0 <= rank_est <= 1, "Rank should be between 0 and 1"
+    assert math.isclose(rank_est, expected, rel_tol=1e-3), (
+        f"Expected ~{expected}, got {rank_est}"
+    )
+
 def test_trimmed_mean():
     values = list(range(101))
     values.append(10_000)
@@ -107,27 +119,6 @@ def test_trimmed_mean():
     # Ensure that providing invalid quantiles raises a ValueError.
     with pytest.raises(ValueError):
         digest.trimmed_mean(0.9, 0.1)
-
-def check_tdigest_equality(original, new):
-    # Sanity checks
-    assert isinstance(new, TDigest), (
-        f"Expected TDigest, got {type(new).__name__}"
-    )
-    assert new.n_values == original.n_values, (
-        f"Expected {original.n_values} values, got {new.n_values}"
-    )
-    assert new.n_centroids == original.n_centroids, (
-        f"Expected {original.n_centroids} centroids, "
-        f"got {new.n_centroids}"
-    )
-
-    # Verify that quantile estimates match within a reasonable tolerance
-    for q in [0.25, 0.5, 0.75]:
-        orig_val = original.estimate_quantile(q)
-        new_val = new.estimate_quantile(q)
-        assert math.isclose(orig_val, new_val, rel_tol=1e-9), (
-            f"Quantile {q} mismatch: original {orig_val} vs new {new_val}"
-        )
 
 def test_to_from_dict():
     original = TDigest(range(1, 101))
@@ -144,16 +135,32 @@ def test_pickle_unpickle():
     unpickled = pickle.loads(dumped)
     check_tdigest_equality(original, unpickled)
 
+def test_len():
+    digest = TDigest([1.0, 2.0, 3.0])
+    length = len(digest)
+    assert isinstance(length, int), (
+        f"Expected int, got {type(length).__name__}"
+    )
+    assert length == 3, f"Expected 3, got {length}"
+
+def test_repr():
+    digest = TDigest([1.0, 2.0, 3.0])
+    rep = repr(digest)
+    assert rep == "TDigest(n_values=3, n_centroids=3)", (
+        f"__repr__ output unexpected: {rep}"
+    )
+
+
 if __name__ == "__main__":
     test_init()
     test_n_values()
     test_n_centroids()
-    test_len()
-    test_repr()
-    test_estimate_quantile()
-    test_estimate_rank()
     test_merge()
     test_compress()
+    test_estimate_quantile()
+    test_estimate_rank()
     test_trimmed_mean()
     test_to_from_dict()
     test_pickle_unpickle()
+    test_len()
+    test_repr()
