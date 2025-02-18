@@ -26,10 +26,10 @@
 ## Features
 
 - **Quantile & Rank Estimation**: Compute highly accurate quantile and rank estimates from large datasets with a low memory footprint.
-- **Trimmed Mean**: Efficient calculation of the truncated mean.
+- **Trimmed Mean**: Calculate the truncated mean in close approximation.
 - **Merging Digests**: Merge two t‑digests into one. This can be used to handle streaming data.
-- **Flexible Compression**: The user handles when and how much t-digests are compressed (with adjustable maximum number of centroids).
-- **Dict conversion**: `to_dict` and `from_dict` methods for easy serialization (e.g. to JSON).
+- **Flexible Compression**: Decide when and how much t-digests are compressed.
+- **Serialization**: Use `to_dict`/`from_dict` methods (e.g. for JSON conversion) or the `pickle` module for easy serialization.
 
 ## Installation
 
