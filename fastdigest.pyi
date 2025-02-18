@@ -1,11 +1,11 @@
-from typing import Dict, List, Sequence, Tuple, Any
+from typing import Dict, List, Sequence, Tuple, Union, Any
 
 class TDigest:
-    def __init__(self, values: Sequence[float]) -> None:
+    def __init__(self, values: Sequence[Union[float, int]]) -> None:
         """
-        Initialize a TDigest with a non-empty sequence of float values.
+        Initialize a TDigest with a non-empty sequence of numerical values.
 
-        :param values: Sequence of float values
+        :param values: Sequence of float or int values
         """
         ...
 
