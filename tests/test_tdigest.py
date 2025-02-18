@@ -58,7 +58,7 @@ def test_estimate_rank():
     digest = TDigest(range(1, 101))
     x = 50
     rank_est = digest.estimate_rank(x)
-    # For uniform data, expected rank is (x - min)/(max - min) = (50-1)/(100-1)
+    # For uniform data, expected rank is (x - min)/(max - min)
     expected = (50 - 1) / (100 - 1)
     assert 0 <= rank_est <= 1, "Rank should be between 0 and 1"
     assert math.isclose(rank_est, expected, rel_tol=1e-3), (
@@ -79,14 +79,13 @@ def test_merge():
 
 def test_compress():
     digest = TDigest(range(1, 101))
-    # Compress the digest to at most 5 centroids. Note that for N data points,
-    # the implementation will never go below min(N, 3) centroids.
+    # Compress the digest to at most 5 centroids. Note that for N values
+    # ingested, it will never go below min(N, 3) centroids.
     digest.compress(5)
     compressed_centroids = len(digest)
     assert 3 <= compressed_centroids <= 5, (
         f"Expected between 3 and 5 centroids, got {compressed_centroids}"
     )
-
     # Check that quantile estimates remain plausible after compression
     quantile_est = digest.estimate_quantile(0.5)
     expected = 50.5
@@ -104,24 +103,23 @@ def test_trimmed_mean():
     assert math.isclose(trimmed, expected, rel_tol=1e-3), (
         f"Expected trimmed mean ~{expected}, got {trimmed}"
     )
-
     # Ensure that providing invalid quantiles raises a ValueError.
     with pytest.raises(ValueError):
         digest.trimmed_mean(0.9, 0.1)
 
 def test_to_from_dict():
-    digest = TDigest(range(1, 101))
-    digest_dict = digest.to_dict()
+    original = TDigest(range(1, 101))
+    digest_dict = original.to_dict()
     assert isinstance(digest_dict, dict), (
         f"Expected dict, got {type(digest_dict).__name__}"
     )
-    new_digest = TDigest.from_dict(digest_dict)
+    new = TDigest.from_dict(digest_dict)
     # Verify that quantile estimates match within a reasonable tolerance
     for q in [0.25, 0.5, 0.75]:
-        orig = digest.estimate_quantile(q)
-        new_val = new_digest.estimate_quantile(q)
-        assert math.isclose(orig, new_val, rel_tol=1e-9), (
-            f"Quantile {q} mismatch: original {orig} vs new {new_val}"
+        orig_val = original.estimate_quantile(q)
+        new_val = new.estimate_quantile(q)
+        assert math.isclose(orig_val, new_val, rel_tol=1e-9), (
+            f"Quantile {q} mismatch: original {orig_val} vs new {new_val}"
         )
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ class TDigest:
         """
         Total number of data points ingested.
 
-        :return: The sum of all centroid weights, rounded to the nearest integer.
+        :return: Sum of all centroid weights, rounded to the nearest integer
         """
         ...
 
@@ -56,11 +56,12 @@ class TDigest:
 
     def compress(self, max_centroids: int) -> None:
         """
-        Compress the TDigest in-place to `max_centroids`.
+        Compress the TDigest in-place to `max_centroids` (or fewer)
+        centroids.
+
+        **Note:** there is a lower limit of `min(n_values, 3)` centroids.
 
         :param max_centroids: Maximum number of centroids allowed
-
-        **Note:** compression below `min(n_values, 3)` centroids is not possible.
         """
         ...
 
@@ -71,7 +72,7 @@ class TDigest:
 
         :param q1: Lower quantile threshold (0 <= q1 < q2)
         :param q2: Upper quantile threshold (q1 < q2 <= 1)
-        :return: The trimmed mean value
+        :return: Trimmed mean value
         """
         ...
 
@@ -79,8 +80,8 @@ class TDigest:
         """
         Return a dictionary representation of the TDigest.
 
-        The returned dictionary contains a key "centroids" that maps to a list of
-        centroids, where each centroid is a dictionary with keys "m" and "c".
+        The returned dict contains a key "centroids" that maps to a list of
+        centroids, where each centroid is a dict with keys "m" and "c".
 
         :return: Dictionary representation of the TDigest
         """
@@ -91,8 +92,8 @@ class TDigest:
         """
         Construct a TDigest from a dictionary representation.
 
-        The dictionary must have a key "centroids" mapping to a list of centroids.
-        Each centroid should be a dictionary with keys "m" (float) and "c" (float).
+        The dict must have a key "centroids" mapping to a list of centroids.
+        Each centroid should be a dict with keys "m" (float) and "c" (float).
 
         :param tdigest_dict: Dictionary with centroids
         :return: TDigest instance
@@ -111,6 +112,6 @@ class TDigest:
         """
         Return a string representation summarizing the TDigest.
 
-        :return: string representation of the TDigest
+        :return: String representation of the TDigest
         """
         ...
