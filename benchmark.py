@@ -26,7 +26,7 @@ def benchmark_fastdigest(
     start = time.perf_counter()
     digest = TDigest(dataset)
     digest.compress(max_centroids)
-    result = digest.estimate_quantile(q)
+    result = digest.quantile(q)
     elapsed_ms = 1000 * (time.perf_counter() - start)
     return result, elapsed_ms
 

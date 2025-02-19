@@ -47,7 +47,7 @@ class TDigest:
         """
         ...
 
-    def estimate_quantile(self, q: float) -> float:
+    def quantile(self, q: float) -> float:
         """
         Estimate the value at a given cumulative probability (quantile).
 
@@ -56,7 +56,7 @@ class TDigest:
         """
         ...
 
-    def estimate_rank(self, x: float) -> float:
+    def rank(self, x: float) -> float:
         """
         Estimate the cumulative probability (rank) of a given value x.
 

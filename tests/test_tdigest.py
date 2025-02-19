@@ -23,8 +23,8 @@ def check_tdigest_equality(
 
     # Verify that quantile estimates match within a reasonable tolerance
     for q in [0.25, 0.5, 0.75]:
-        orig_val = original.estimate_quantile(q)
-        new_val = new.estimate_quantile(q)
+        orig_val = original.quantile(q)
+        new_val = new.quantile(q)
         assert math.isclose(orig_val, new_val, rel_tol=rel_tol), (
             f"Quantile {q} mismatch: original {orig_val} vs new {new_val}"
         )
@@ -62,7 +62,7 @@ def test_merge():
     digest2 = TDigest(range(51, 101))
     merged = digest1.merge(digest2)
     # The median of the merged data should be around 50.5
-    quantile_est = merged.estimate_quantile(0.5)
+    quantile_est = merged.quantile(0.5)
     expected = 50.5
     assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected median ~{expected}, got {quantile_est}"
@@ -78,27 +78,27 @@ def test_compress():
         f"Expected between 3 and 5 centroids, got {compressed_centroids}"
     )
     # Check that quantile estimates remain plausible after compression
-    quantile_est = digest.estimate_quantile(0.5)
+    quantile_est = digest.quantile(0.5)
     expected = 50.5
     assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected median ~{expected}, got {quantile_est}"
     )
 
-def test_estimate_quantile():
+def test_quantile():
     # Create a digest from 1..100
     digest = TDigest(range(1, 101))
     # For a uniformly distributed dataset, the median should be near 50.5
     q = 0.5
-    quantile_est = digest.estimate_quantile(q)
+    quantile_est = digest.quantile(q)
     expected = 1 + q * (100 - 1)  # 1 + 0.5*99 = 50.5
     assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected ~{expected}, got {quantile_est}"
     )
 
-def test_estimate_rank():
+def test_rank():
     digest = TDigest(range(1, 101))
     x = 50
-    rank_est = digest.estimate_rank(x)
+    rank_est = digest.rank(x)
     # For uniform data, expected rank is (x - min)/(max - min)
     expected = (50 - 1) / (100 - 1)
     assert 0 <= rank_est <= 1, "Rank should be between 0 and 1"
@@ -157,8 +157,8 @@ if __name__ == "__main__":
     test_n_centroids()
     test_merge()
     test_compress()
-    test_estimate_quantile()
-    test_estimate_rank()
+    test_quantile()
+    test_rank()
     test_trimmed_mean()
     test_to_from_dict()
     test_pickle_unpickle()

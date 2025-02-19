@@ -50,7 +50,7 @@ impl PyTDigest {
     }
 
     /// Estimates the quantile for a given cumulative probability `q`.
-    pub fn estimate_quantile(&self, q: f64) -> PyResult<f64> {
+    pub fn quantile(&self, q: f64) -> PyResult<f64> {
         if q < 0.0 || q > 1.0 {
             return Err(PyValueError::new_err("q must be between 0 and 1."));
         }
@@ -58,11 +58,11 @@ impl PyTDigest {
     }
 
     /// Estimates the rank (cumulative probability) of a given value `x`.
-    pub fn estimate_rank(&self, x: f64) -> PyResult<f64> {
+    pub fn rank(&self, x: f64) -> PyResult<f64> {
         Ok(self.digest.estimate_rank(x))
     }
 
-    /// Returns the trimmed mean of the digest between the q1 and q2 quantiles.
+    /// Returns the trimmed mean of the data between the q1 and q2 quantiles.
     pub fn trimmed_mean(&self, q1: f64, q2: f64) -> PyResult<f64> {
         if q1 < 0.0 || q2 > 1.0 || q1 >= q2 {
             return Err(PyValueError::new_err(
