@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "fastdigest"
-version = "0.3.1"
+version = "0.4.0"
 description = "A fast t-digest library for Python built on Rust."
 readme = "README.md"
 requires-python = ">=3.8"
