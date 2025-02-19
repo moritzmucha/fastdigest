@@ -54,6 +54,17 @@ impl PyTDigest {
         self.digest.compress(max_centroids);
     }
 
+    /// Updates the digest (in-place) with a non‑empty list of float values.
+    pub fn batch_update(&mut self, values: Vec<f64>) {
+        let new_digest = TDigest::from_values(values);
+        self.digest = self.digest.merge(&new_digest);
+    }
+
+    /// Updates the digest (in-place) with a single float value.
+    pub fn update(&mut self, value: f64) {
+        self.batch_update(vec![value]);
+    }
+
     /// Estimates the quantile for a given cumulative probability `q`.
     pub fn quantile(&self, q: f64) -> PyResult<f64> {
         if q < 0.0 || q > 1.0 {

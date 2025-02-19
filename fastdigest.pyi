@@ -55,6 +55,27 @@ class TDigest:
         :param max_centroids: Maximum number of centroids allowed
         """
         ...
+    
+    def batch_update(self, values: Sequence[Union[float, int]]) -> None:
+        """
+        Update the TDigest in-place with a non-empty sequence of numbers.
+
+        This is equivalent to creating a temporary TDigest from the values
+        and merging it into `self`.
+
+        :param values: Sequence of values to add
+        """
+        ...
+
+    def update(self, value: Union[float, int]) -> None:
+        """
+        Update the TDigest in-place with a single value.
+
+        This is equivalent to `self.batch_update([value])`.
+
+        :param value: Single value to add
+        """
+        ...
 
     def quantile(self, q: float) -> float:
         """

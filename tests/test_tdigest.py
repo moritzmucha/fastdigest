@@ -96,6 +96,26 @@ def test_compress():
         f"Expected median ~{expected}, got {quantile_est}"
     )
 
+def test_batch_update():
+    digest = TDigest(range(1, 51))
+    digest.batch_update(range(51, 101))
+    # The median of the merged data should be around 50.5
+    quantile_est = digest.quantile(0.5)
+    expected = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
+def test_update():
+    digest = TDigest(range(1, 100))
+    digest.update(100)
+    # The median of the merged data should be around 50.5
+    quantile_est = digest.quantile(0.5)
+    expected = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
 def test_quantile():
     # Create a digest from 1..100
     digest = TDigest(range(1, 101))
@@ -205,6 +225,8 @@ if __name__ == "__main__":
     test_merge()
     test_merge_inplace()
     test_compress()
+    test_batch_update()
+    test_update()
     test_quantile()
     test_percentile()
     test_rank()
