@@ -68,6 +68,18 @@ def test_merge():
         f"Expected median ~{expected}, got {quantile_est}"
     )
 
+def test_merge_inplace():
+    # Create two TDigest instances from non-overlapping ranges
+    digest1 = TDigest(range(1, 51))
+    digest2 = TDigest(range(51, 101))
+    digest1.merge_inplace(digest2)
+    # The median of the merged data should be around 50.5
+    quantile_est = digest1.quantile(0.5)
+    expected = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
 def test_compress():
     digest = TDigest(range(1, 101))
     # Compress the digest to at most 5 centroids. Note that for N values
@@ -161,12 +173,37 @@ def test_repr():
         f"__repr__ output unexpected: {rep}"
     )
 
+def test_add():
+    # Create two TDigest instances from non-overlapping ranges
+    digest1 = TDigest(range(1, 51))
+    digest2 = TDigest(range(51, 101))
+    merged = digest1 + digest2
+    # The median of the merged data should be around 50.5
+    quantile_est = merged.quantile(0.5)
+    expected = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
+def test_iadd():
+    # Create two TDigest instances from non-overlapping ranges
+    digest1 = TDigest(range(1, 51))
+    digest2 = TDigest(range(51, 101))
+    digest1 += digest2
+    # The median of the merged data should be around 50.5
+    quantile_est = digest1.quantile(0.5)
+    expected = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
 
 if __name__ == "__main__":
     test_init()
     test_n_values()
     test_n_centroids()
     test_merge()
+    test_merge_inplace()
     test_compress()
     test_quantile()
     test_percentile()
@@ -176,3 +213,5 @@ if __name__ == "__main__":
     test_pickle_unpickle()
     test_len()
     test_repr()
+    test_add()
+    test_iadd()

@@ -43,6 +43,11 @@ impl PyTDigest {
         })
     }
 
+    /// Merges this digest with another, modifying the current instance.
+    pub fn merge_inplace(&mut self, other: &Self) {
+        self.digest = self.digest.merge(&other.digest)
+    }
+
     /// Compresses the digest (in‑place) to have at most `max_centroids`
     /// (but at least `min(n_values, 3)`) centroids.
     pub fn compress(&mut self, max_centroids: usize) {
@@ -196,6 +201,16 @@ impl PyTDigest {
             self.get_n_values()?,
             self.get_n_centroids()?
         ))
+    }
+
+    /// Magic method: dig1 + dig2 returns dig1.merge(dig2).
+    pub fn __add__(&self, other: &Self) -> PyResult<Self> {
+        self.merge(&other)
+    }
+
+    /// Magic method: dig1 += dig2 calls dig1.merge_inplace(dig2).
+    pub fn __iadd__(&mut self, other: &Self) {
+        self.merge_inplace(&other);
     }
 }
 

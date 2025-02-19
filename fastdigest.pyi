@@ -36,6 +36,15 @@ class TDigest:
         """
         ...
 
+    def merge_inplace(self, other: "TDigest") -> None:
+        """
+        Merge another TDigest into this one in-place.
+
+        :param other: Other TDigest instance
+        :return: The modified TDigest (self)
+        """
+        ...
+
     def compress(self, max_centroids: int) -> None:
         """
         Compress the TDigest in-place to `max_centroids` (or fewer)
@@ -133,5 +142,26 @@ class TDigest:
         Return a string representation summarizing the TDigest.
 
         :return: String representation of the TDigest
+        """
+        ...
+
+    def __add__(self, other: "TDigest") -> "TDigest":
+        """
+        Merge this TDigest with another, returning a new TDigest.
+        
+        Equivalent to `self.merge(other)`, but using the `+` operator.
+
+        :param other: Other TDigest instance
+        :return: New TDigest representing the merged data
+        """
+        ...
+
+    def __iadd__(self, other: "TDigest") -> "TDigest":
+        """
+        Merge another TDigest into this one in-place.
+        
+        Equivalent to `self.merge_inplace(other)`, but using the `+=` operator.
+
+        :param other: Other TDigest instance
         """
         ...
