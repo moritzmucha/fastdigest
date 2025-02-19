@@ -15,8 +15,9 @@
   - [Installing from source](#installing-from-source)
 - [Usage](#usage)
   - [Creating a TDigest from values](#creating-a-tdigest-from-values)
-  - [Merging two TDigest objects](#merging-two-tdigest-objects)
   - [Compressing the TDigest](#compressing-the-tdigest)
+  - [Merging TDigest objects](#merging-tdigest-objects)
+  - [Updating a TDigest](#updating-a-tdigest)
   - [Estimating quantiles and ranks](#estimating-quantiles-and-ranks)
   - [Estimating the trimmed mean](#estimating-the-trimmed-mean)
   - [Exporting a TDigest to a dict](#exporting-a-tdigest-to-a-dict)
@@ -29,7 +30,8 @@
 
 - **Quantile & rank estimation**: Compute highly accurate quantile and rank estimates from large datasets with a low memory footprint.
 - **Trimmed mean**: Calculate the truncated mean in close approximation.
-- **Merging digests**: Merge two t‑digests into one. This can be used to handle streaming data.
+- **Merging digests**: Merge many t‑digests into one, enabling parallel computing workflows such as MapReduce big data processing.
+- **Updating**: Use convenience methods to update a t-digest incrementally.
 - **Flexible compression**: Decide when and how much t-digests are compressed.
 - **Serialization**: Use the `to_dict`/`from_dict` methods (e.g. for JSON conversion) or the `pickle` module for easy serialization.
 
@@ -86,18 +88,6 @@ array = np.linspace(0, 100, 101)
 digest = TDigest(array)
 ```
 
-### Merging two TDigest objects
-
-Merge two digests to combine their data:
-
-```python
-from fastdigest import TDigest
-
-digest1 = TDigest(range(50))
-digest2 = TDigest(range(50, 101))
-merged_digest = digest1.merge(digest2)
-```
-
 ### Compressing the TDigest
 
 The TDigest is **uncompressed** after initialization - meaning it has one centroid per data point. Call the `compress(max_centroids)` method to shrink the TDigest object in-place:
@@ -111,39 +101,76 @@ digest.compress(10)  # compress to 10 (or fewer) centroids
 print(f" After: {len(digest)} centroids")
 ```
 
+### Merging TDigest objects
+
+Use the `+` operator to merge TDigests, combining their data:
+
+```python
+from fastdigest import TDigest
+
+digest1 = TDigest(range(50))
+digest2 = TDigest(range(50, 101))
+merged_digest = digest1 + digest2  # alias for digest1.merge(digest2)
+```
+
+You can also merge in-place using the `+=` operator:
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest(range(50))
+temp_digest = TDigest(range(50, 101))
+digest += temp_digest  # alias for digest.merge_inplace(temp_digest)
+```
+
+### Updating a TDigest
+
+To update an existing TDigest in-place with a new sequence/array of values, use `batch_update`:
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest([1, 2, 3])
+digest.batch_update([4, 5, 6])
+```
+
+To update with a single value, use `update`:
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest([1, 2, 3])
+digest.update(4)
+```
+
+**Note:** If you have more than one value to add, it is always preferable to use `batch_update` rather than looping over `update`.
+
 ### Estimating quantiles and ranks
 
-Estimate the value at a given quantile:
+Estimate the value at a given quantile `q` using `quantile(q)` or `percentile(100 * q)`:
 
 ```python
 from fastdigest import TDigest
 
-# Simple example
-digest = TDigest(range(101))
+digest = TDigest(range(1001))
 digest.compress(3)
-print("         Median:", digest.estimate_quantile(0.5))
-print("90th percentile:", digest.estimate_quantile(0.9))
+print("         Median:", digest.quantile(0.5))
+print("99th percentile:", digest.quantile(0.99))
+
+# same thing, different method:
+print("         Median:", digest.percentile(50))
+print("99th percentile:", digest.percentile(99))
 ```
+
+Or do the reverse - find the cumulative probability (rank) of a given value:
 
 ```python
 from fastdigest import TDigest
-import numpy as np
 
-# Example using a standard normal distribution
-normal_dist = np.random.normal(0, 1, 10_000)
-digest = TDigest(normal_dist)
-digest.compress(100)
-z_score = digest.estimate_quantile((1 + 0.954) / 2)  # using symmetry
-print(f"Standard deviations at 95.4% confidence: {z_score:.2f}")
-```
-
-Or the reverse - the cumulative probability (rank) of a given value:
-
-```python
-# Continuing from normal distribution example
-confidence = 2 * digest.estimate_rank(2.0) - 1  # reverse order of operations
-confidence_pct = 100 * confidence
-print(f"Confidence at 2.0 standard deviations: {confidence_pct:.2f}%")
+digest = TDigest(range(1001))
+digest.compress(3)
+print("Rank of 500:", digest.rank(500))
+print("Rank of 990:", digest.rank(990))
 ```
 
 ### Estimating the trimmed mean
@@ -154,9 +181,9 @@ Estimate the truncated mean, i.e. the arithmetic mean of all data points between
 from fastdigest import TDigest
 
 values = list(range(10))
-values.append(1000)
+values.append(1000)  # outlier that we want to ignore
 digest = TDigest(values)
-digest.trimmed_mean(0.1, 0.9)
+digest.trimmed_mean(0.1, 0.9)  # result: 5.0
 ```
 
 ### Exporting a TDigest to a dict
@@ -190,7 +217,7 @@ data = {
 digest = TDigest.from_dict(data)
 ```
 
-If you have been working with the older *tdigest* Python library, you may be glad to hear that dicts created by its `to_dict` method can also natively be used by *fastDigest*.
+**Note:** If you have been working with the older *tdigest* Python library, you may be glad to hear that dicts created by its `to_dict` method can also natively be used by *fastDigest*.
 
 ## Benchmarks
 
