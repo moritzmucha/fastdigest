@@ -95,6 +95,17 @@ def test_quantile():
         f"Expected ~{expected}, got {quantile_est}"
     )
 
+def test_percentile():
+    # Create a digest from 1..100
+    digest = TDigest(range(1, 101))
+    # For a uniformly distributed dataset, the median should be near 50.5
+    p = 50
+    quantile_est = digest.percentile(p)
+    expected = 1 + (p / 100) * (100 - 1)  # 1 + 0.5*99 = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected ~{expected}, got {quantile_est}"
+    )
+
 def test_rank():
     digest = TDigest(range(1, 101))
     x = 50
@@ -158,6 +169,7 @@ if __name__ == "__main__":
     test_merge()
     test_compress()
     test_quantile()
+    test_percentile()
     test_rank()
     test_trimmed_mean()
     test_to_from_dict()

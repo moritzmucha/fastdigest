@@ -56,6 +56,17 @@ class TDigest:
         """
         ...
 
+    def percentile(self, p: Union[float, int]) -> float:
+        """
+        Estimate the value at a given cumulative probability (percentile).
+
+        Convenience method, same as `quantile(p/100)`.
+
+        :param p: Number between 0 and 100 (cumulative probability in percent)
+        :return: Estimated percentile value
+        """
+        ...
+
     def rank(self, x: float) -> float:
         """
         Estimate the cumulative probability (rank) of a given value x.

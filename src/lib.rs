@@ -57,6 +57,14 @@ impl PyTDigest {
         Ok(self.digest.estimate_quantile(q))
     }
 
+    /// Estimates the percentile for a given cumulative probability `p` (%).
+    pub fn percentile(&self, p: f64) -> PyResult<f64> {
+        if p < 0.0 || p > 100.0 {
+            return Err(PyValueError::new_err("p must be between 0 and 100."));
+        }
+        Ok(self.digest.estimate_quantile(0.01 * p))
+    }
+
     /// Estimates the rank (cumulative probability) of a given value `x`.
     pub fn rank(&self, x: f64) -> PyResult<f64> {
         Ok(self.digest.estimate_rank(x))
