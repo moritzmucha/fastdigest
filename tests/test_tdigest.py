@@ -56,6 +56,22 @@ def test_n_centroids():
     )
     assert n_centroids == 3, f"Expected 3, got {n_centroids}"
 
+def test_compress():
+    digest = TDigest(range(1, 101))
+    # Compress the digest to at most 5 centroids. Note that for N values
+    # ingested, it will never go below min(N, 3) centroids.
+    digest.compress(5)
+    compressed_centroids = len(digest)
+    assert 3 <= compressed_centroids <= 5, (
+        f"Expected between 3 and 5 centroids, got {compressed_centroids}"
+    )
+    # Check that quantile estimates remain plausible after compression
+    quantile_est = digest.quantile(0.5)
+    expected = 50.5
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
 def test_merge():
     # Create two TDigest instances from non-overlapping ranges
     digest1 = TDigest(range(1, 51))
@@ -75,22 +91,6 @@ def test_merge_inplace():
     digest1.merge_inplace(digest2)
     # The median of the merged data should be around 50.5
     quantile_est = digest1.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
-
-def test_compress():
-    digest = TDigest(range(1, 101))
-    # Compress the digest to at most 5 centroids. Note that for N values
-    # ingested, it will never go below min(N, 3) centroids.
-    digest.compress(5)
-    compressed_centroids = len(digest)
-    assert 3 <= compressed_centroids <= 5, (
-        f"Expected between 3 and 5 centroids, got {compressed_centroids}"
-    )
-    # Check that quantile estimates remain plausible after compression
-    quantile_est = digest.quantile(0.5)
     expected = 50.5
     assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected median ~{expected}, got {quantile_est}"

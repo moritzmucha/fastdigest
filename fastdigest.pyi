@@ -27,6 +27,17 @@ class TDigest:
         """
         ...
 
+    def compress(self, max_centroids: int) -> None:
+        """
+        Compress the TDigest in-place to `max_centroids` (or fewer)
+        centroids.
+
+        **Note:** there is a lower limit of `min(n_values, 3)` centroids.
+
+        :param max_centroids: Maximum number of centroids allowed
+        """
+        ...
+
     def merge(self, other: "TDigest") -> "TDigest":
         """
         Merge this TDigest with another, returning a new TDigest.
@@ -42,17 +53,6 @@ class TDigest:
 
         :param other: Other TDigest instance
         :return: The modified TDigest (self)
-        """
-        ...
-
-    def compress(self, max_centroids: int) -> None:
-        """
-        Compress the TDigest in-place to `max_centroids` (or fewer)
-        centroids.
-
-        **Note:** there is a lower limit of `min(n_values, 3)` centroids.
-
-        :param max_centroids: Maximum number of centroids allowed
         """
         ...
     

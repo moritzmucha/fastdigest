@@ -10,7 +10,7 @@ struct PyTDigest {
 
 #[pymethods]
 impl PyTDigest {
-    /// Constructs a new TDigest from a non‑empty list of float values.
+    /// Constructs a new TDigest from a non-empty list of float values.
     #[new]
     pub fn new(values: Vec<f64>) -> PyResult<Self> {
         if values.is_empty() {
@@ -36,6 +36,12 @@ impl PyTDigest {
         Ok(self.digest.centroids().len())
     }
 
+    /// Compresses the digest (in-place) to `max_centroids`.
+    /// Note that for N values ingested, it won't go below min(N, 3).
+    pub fn compress(&mut self, max_centroids: usize) {
+        self.digest.compress(max_centroids);
+    }
+
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&self, other: &Self) -> PyResult<Self> {
         Ok(Self {
@@ -48,13 +54,7 @@ impl PyTDigest {
         self.digest = self.digest.merge(&other.digest)
     }
 
-    /// Compresses the digest (in‑place) to have at most `max_centroids`
-    /// (but at least `min(n_values, 3)`) centroids.
-    pub fn compress(&mut self, max_centroids: usize) {
-        self.digest.compress(max_centroids);
-    }
-
-    /// Updates the digest (in-place) with a non‑empty list of float values.
+    /// Updates the digest (in-place) with a non-empty list of float values.
     pub fn batch_update(&mut self, values: Vec<f64>) {
         let new_digest = TDigest::from_values(values);
         self.digest = self.digest.merge(&new_digest);
