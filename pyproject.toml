@@ -7,7 +7,7 @@ name = "fastdigest"
 version = "0.4.0"
 description = "A fast t-digest library for Python built on Rust."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 license = { file = "LICENSE" }
 authors = [
   { name = "Moritz Mucha", email = "fastdigestlibrary@gmail.com" }
@@ -29,6 +29,7 @@ keywords = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
