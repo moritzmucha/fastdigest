@@ -1,26 +1,49 @@
 use pyo3::exceptions::{PyKeyError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
+use std::cmp::Ordering;
 use tdigests::{Centroid, TDigest};
 
-#[pyclass(name="TDigest", module="fastdigest")]
+#[pyclass(name = "TDigest", module = "fastdigest")]
 #[derive(Clone)]
-struct PyTDigest {
+pub struct PyTDigest {
     digest: TDigest,
+    max_centroids: Option<usize>,
 }
 
 #[pymethods]
 impl PyTDigest {
     /// Constructs a new TDigest from a non-empty list of float values.
     #[new]
-    pub fn new(values: Vec<f64>) -> PyResult<Self> {
+    #[pyo3(signature = (values, max_centroids=None))]
+    pub fn new(
+        values: Vec<f64>,
+        max_centroids: Option<usize>,
+    ) -> PyResult<Self> {
         if values.is_empty() {
             Err(PyValueError::new_err("Values list cannot be empty"))
         } else {
+            let mut digest = TDigest::from_values(values);
+            if let Some(max) = max_centroids {
+                digest.compress(max);
+            }
             Ok(Self {
-                digest: TDigest::from_values(values),
+                digest,
+                max_centroids,
             })
         }
+    }
+
+    /// Getter property: returns the max_centroids parameter.
+    #[getter(max_centroids)]
+    pub fn get_max_centroids(&self) -> PyResult<Option<usize>> {
+        Ok(self.max_centroids)
+    }
+
+    /// Setter property: sets the max_centroids parameter.
+    #[setter(max_centroids)]
+    pub fn set_max_centroids(&mut self, max_centroids: usize) {
+        self.max_centroids = Some(max_centroids)
     }
 
     /// Getter property: returns the total number of data points ingested.
@@ -45,25 +68,49 @@ impl PyTDigest {
 
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&self, other: &Self) -> PyResult<Self> {
+        let max_centroids =
+            if compare_options(&self.max_centroids, &other.max_centroids)
+                == Ordering::Less
+            {
+                other.max_centroids
+            } else {
+                self.max_centroids
+            };
+
+        let mut digest = self.digest.merge(&other.digest);
+        if let Some(max) = max_centroids {
+            digest.compress(max);
+        }
+
         Ok(Self {
-            digest: self.digest.merge(&other.digest)
+            digest,
+            max_centroids,
         })
     }
 
     /// Merges this digest with another, modifying the current instance.
     pub fn merge_inplace(&mut self, other: &Self) {
-        self.digest = self.digest.merge(&other.digest)
+        self.digest = self.digest.merge(&other.digest);
+        if let Some(max) = self.max_centroids {
+            self.digest.compress(max);
+        }
     }
 
     /// Updates the digest (in-place) with a non-empty list of float values.
     pub fn batch_update(&mut self, values: Vec<f64>) {
         let new_digest = TDigest::from_values(values);
         self.digest = self.digest.merge(&new_digest);
+        if let Some(max) = self.max_centroids {
+            self.digest.compress(max);
+        }
     }
 
     /// Updates the digest (in-place) with a single float value.
     pub fn update(&mut self, value: f64) {
         self.batch_update(vec![value]);
+        if let Some(max) = self.max_centroids {
+            self.digest.compress(max);
+        }
     }
 
     /// Estimates the quantile for a given cumulative probability `q`.
@@ -137,6 +184,12 @@ impl PyTDigest {
     /// each with keys "m" (mean) and "c" (weight or count).
     pub fn to_dict(&self, py: Python) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
+
+        // Create "max_centroids" key only if set
+        if let Some(max) = self.max_centroids {
+            dict.set_item("max_centroids", max)?;
+        }
+
         let centroid_list = PyList::empty(py);
         for centroid in self.digest.centroids() {
             let centroid_dict = PyDict::new(py);
@@ -181,8 +234,16 @@ impl PyTDigest {
                 "Centroids list cannot be empty",
             ));
         }
+
+        // Extract max_centroids as an Option<usize>.
+        let max_centroids: Option<usize> = tdigest_dict
+            .get_item("max_centroids")?
+            .map(|obj| obj.extract())
+            .transpose()?;
+
         Ok(Self {
             digest: TDigest::from_centroids(centroids),
+            max_centroids,
         })
     }
 
@@ -224,9 +285,11 @@ impl PyTDigest {
     /// Magic method: repr/str(TDigest) returns a string representation.
     pub fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "TDigest(n_values={}, n_centroids={})",
-            self.get_n_values()?,
-            self.get_n_centroids()?
+            "TDigest(max_centroids={})",
+            match self.get_max_centroids()? {
+                Some(max_centroids) => max_centroids.to_string(),
+                None => String::from("None")
+            }
         ))
     }
 
@@ -241,9 +304,65 @@ impl PyTDigest {
     }
 }
 
+/// Helper function for merging; None > Some(any)
+fn compare_options(opt1: &Option<usize>, opt2: &Option<usize>) -> Ordering {
+    match (opt1, opt2) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => Ordering::Greater,
+        (Some(_), None) => Ordering::Less,
+        (Some(a), Some(b)) => a.cmp(b),
+    }
+}
+
+/// Top-level function for more efficient merging of many TDigest instances.
+#[pyfunction]
+#[pyo3(signature = (digests, max_centroids=None))]
+pub fn merge_all(
+    py: Python,
+    digests: Vec<Py<PyTDigest>>,
+    max_centroids: Option<usize>,
+) -> PyResult<PyTDigest> {
+    if digests.is_empty() {
+        return Err(PyValueError::new_err("No TDigests provided."));
+    }
+
+    let final_max = if max_centroids.is_some() {
+        max_centroids // take provided value
+    } else {
+        // or determine via merge logic
+        digests
+            .iter()
+            .map(|p| p.borrow(py).max_centroids)
+            .max_by(compare_options)
+            .flatten()
+    };
+
+    // Start with the first digest; assume TDigest implements Clone.
+    let mut combined_digest = {
+        let first = digests[0].borrow(py);
+        first.digest.clone()
+    };
+
+    // Merge the remaining digests.
+    for d in digests.iter().skip(1) {
+        let d_borrowed = d.borrow(py);
+        combined_digest = combined_digest.merge(&d_borrowed.digest);
+    }
+
+    // Optionally compress.
+    if let Some(max) = final_max {
+        combined_digest.compress(max);
+    }
+    Ok(PyTDigest {
+        digest: combined_digest,
+        max_centroids: final_max,
+    })
+}
+
 /// The Python module definition.
 #[pymodule]
 fn fastdigest(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTDigest>()?;
+    m.add_function(wrap_pyfunction!(merge_all, m)?)?;
     Ok(())
 }

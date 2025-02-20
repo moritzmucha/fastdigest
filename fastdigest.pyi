@@ -1,13 +1,32 @@
-from typing import Dict, List, Sequence, Tuple, Union, Any
+from typing import Dict, List, Sequence, Tuple, Optional, Union, Any
 
 class TDigest:
-    def __init__(self, values: Sequence[Union[float, int]]) -> None:
+    def __init__(
+            self, values: Sequence[Union[float, int]],
+            max_centroids: Optional[int] = None
+        ) -> None:
         """
         Initialize a TDigest with a non-empty sequence of numerical values.
 
-        :param values: Sequence of float or int values
+        :param values: Sequence of float or int values.
+        :param optional max_centroids:
+            Maximum number of centroids to maintain. When provided, compression
+            is automatically performed during merging and updating operations
+            to keep the digest small and efficient. Default is None.
         """
         ...
+
+    @property
+    def max_centroids(self) -> Optional[int]:
+        """
+        The maximum number of centroids instance parameter.
+        
+        :return: Maximum number of centroids parameter
+        """
+        ...
+
+    @max_centroids.setter
+    def max_centroids(self, value: int) -> None: ...
 
     @property
     def n_values(self) -> int:
@@ -42,6 +61,13 @@ class TDigest:
         """
         Merge this TDigest with another, returning a new TDigest.
 
+        The resulting TDigest will use the higher of the two instances'
+        `max_centroids` parameters; if at least one of them is None
+        (no automatic compression), it will be None.
+
+        If `max_centroids` is set in the resulting TDigest, compression is
+        performed immediately after merging.
+
         :param other: Other TDigest instance
         :return: New TDigest representing the merged data
         """
@@ -49,19 +75,25 @@ class TDigest:
 
     def merge_inplace(self, other: "TDigest") -> None:
         """
-        Merge another TDigest into this one in-place.
+        Merge another TDigest into `self`, modifying the calling object
+        in-place.
+
+        If `max_centroids` is set in the calling TDigest, compression is
+        performed immediately after merging.
 
         :param other: Other TDigest instance
-        :return: The modified TDigest (self)
         """
         ...
-    
+
     def batch_update(self, values: Sequence[Union[float, int]]) -> None:
         """
         Update the TDigest in-place with a non-empty sequence of numbers.
 
         This is equivalent to creating a temporary TDigest from the values
         and merging it into `self`.
+
+        If `max_centroids` is set, compression is performed immediately
+        after updating.
 
         :param values: Sequence of values to add
         """
@@ -72,6 +104,12 @@ class TDigest:
         Update the TDigest in-place with a single value.
 
         This is equivalent to `self.batch_update([value])`.
+
+        If `max_centroids` is set, compression is performed immediately
+        after updating.
+
+        **Note:** When used iteratively, this is very inefficient.
+        Use `batch_update` instead.
 
         :param value: Single value to add
         """
@@ -184,7 +222,7 @@ class TDigest:
 
     def __repr__(self) -> str:
         """
-        Return a string representation summarizing the TDigest.
+        Return a string representation of the TDigest.
 
         :return: String representation of the TDigest
         """
@@ -210,3 +248,25 @@ class TDigest:
         :param other: Other TDigest instance
         """
         ...
+
+def merge_all(
+        digests: Sequence[TDigest],
+        max_centroids: Optional[int] = None
+    ) -> TDigest:
+    """
+    Merge a sequence of TDigest instances into a single TDigest.
+
+    If `max_centroids` is provided, this value will be set in the new TDigest.
+
+    Otherwise, the resulting TDigest will use the highest of the instances'
+    `max_centroids` parameters; if at least one of them is None
+    (no automatic compression), it will be None.
+
+    If `max_centroids` is set in the resulting TDigest, compression is
+    performed immediately after merging.
+
+    :param digests: Sequence of TDigest instances to merge
+    :param optional max_centroids: Maximum number of centroids to maintain
+    :return: New TDigest representing the merged data
+    """
+    ...
