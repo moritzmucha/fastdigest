@@ -4,6 +4,7 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 use tdigests::{Centroid, TDigest};
 
 #[pyclass(name="TDigest", module="fastdigest")]
+#[derive(Clone)]
 struct PyTDigest {
     digest: TDigest,
 }
@@ -183,6 +184,21 @@ impl PyTDigest {
         Ok(Self {
             digest: TDigest::from_centroids(centroids),
         })
+    }
+
+    /// TDigest.copy() returns a copy of the instance.
+    pub fn copy(&self) -> PyResult<Self> {
+        Ok(self.clone())
+    }
+
+    /// Magic method: copy(digest) returns a copy of the instance.
+    pub fn __copy__(&self) -> PyResult<Self> {
+        Ok(self.clone())
+    }
+
+    /// Magic method: deepcopy(digest) returns a copy of the instance.
+    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(self.clone())
     }
 
     /// Returns a tuple (callable, args) so that pickle can reconstruct

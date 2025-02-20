@@ -1,6 +1,7 @@
+import pytest
 import math
 import pickle
-import pytest
+from copy import copy, deepcopy
 from fastdigest import TDigest
 
 
@@ -172,6 +173,30 @@ def test_to_from_dict():
     new = TDigest.from_dict(digest_dict)
     check_tdigest_equality(original, new)
 
+def test_copy():
+    digest = TDigest([1.0, 2.0, 3.0])
+    digest_copy = digest.copy()
+    check_tdigest_equality(digest, digest_copy)
+    assert id(digest_copy) != id(digest), (
+        "The copy should be a separate instance."
+    )
+
+def test_copy_magic():
+    digest = TDigest([1.0, 2.0, 3.0])
+    digest_copy = copy(digest)
+    check_tdigest_equality(digest, digest_copy)
+    assert id(digest_copy) != id(digest), (
+        "The copy should be a separate instance."
+    )
+
+def test_deepcopy():
+    digest = TDigest([1.0, 2.0, 3.0])
+    digest_copy = deepcopy(digest)
+    check_tdigest_equality(digest, digest_copy)
+    assert id(digest_copy) != id(digest), (
+        "The copy should be a separate instance."
+    )
+
 def test_pickle_unpickle():
     original = TDigest(range(1, 101))
     dumped = pickle.dumps(original)
@@ -232,6 +257,9 @@ if __name__ == "__main__":
     test_rank()
     test_trimmed_mean()
     test_to_from_dict()
+    test_copy()
+    test_copy_magic()
+    test_deepcopy()
     test_pickle_unpickle()
     test_len()
     test_repr()

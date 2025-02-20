@@ -141,6 +141,30 @@ class TDigest:
         """
         ...
 
+    def copy(self) -> "TDigest":
+        """
+        Returns a copy of the TDigest instance.
+
+        :return: Copy of the TDigest instance
+        """
+        ...
+
+    def __copy__(self) -> "TDigest":
+        """
+        Returns a copy of the TDigest instance.
+
+        :return: Copy of the TDigest instance
+        """
+        ...
+
+    def __deepcopy__(self) -> "TDigest":
+        """
+        Returns a copy of the TDigest instance.
+
+        :return: Copy of the TDigest instance
+        """
+        ...
+
     def __reduce__(self) -> Tuple[object, Tuple[Any, ...]]:
         """
         Enables pickle support by returning a tuple (callable, args) that
