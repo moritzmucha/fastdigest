@@ -142,6 +142,7 @@ If you don't specify the `max_centroids` parameter at initialization, the TDiges
 import numpy as np
 from fastdigest import TDigest
 
+# generate a large dataset from a skewed distribution
 data = np.random.gumbel(0, 0.1, 10_000)
 
 digest = TDigest(data)
@@ -186,6 +187,7 @@ digest = TDigest(range(50))
 temp_digest = TDigest(range(50, 101))
 digest += temp_digest  # alias for digest.merge_inplace(temp_digest)
 
+# verify that the result is the same as a new instance from the same data
 digest == TDigest(range(101))  # True
 ```
 
@@ -207,17 +209,18 @@ print(f"Result: {len(digest)} centroids")  # 3 centroids
 
 #### Merging a list of TDigests
 
-The `merge_all` function offers an easy way of batch-merging a list of TDigests. The `max_centroids` value for the new instance can be optionally specified as a keyword argument, otherwise it is determined from the input TDigests.
+The `merge_all` function offers an easy way to merge a sequence of many TDigests. The `max_centroids` value for the new instance can be optionally specified as a keyword argument, otherwise it is determined from the input TDigests.
 
 ```python
 from fastdigest import TDigest, merge_all
 
-# create a list of 10 non-overlapping digests
+# create a list of 10 digests from (non-overlapping) ranges
 digests = [TDigest(range(i, i+10)) for i in range(0, 100, 10)]
 
 # merge all digests and create a new instance compressed to 3 centroids
 merged = merge_all(digests, max_centroids=3)
 
+# verify that the result is the same as a new instance from the same data
 merged == TDigest(range(100), max_centroids=3)  # True
 ```
 

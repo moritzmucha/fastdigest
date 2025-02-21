@@ -21,7 +21,7 @@ class TDigest:
         """
         The maximum number of centroids instance parameter.
         
-        :return: Maximum number of centroids parameter
+        :return: Maximum number of centroids parameter.
         """
         ...
 
@@ -33,7 +33,7 @@ class TDigest:
         """
         Total number of data points ingested.
 
-        :return: Sum of all centroid weights, rounded to the nearest integer
+        :return: Sum of all centroid weights, rounded to the nearest integer.
         """
         ...
 
@@ -42,7 +42,7 @@ class TDigest:
         """
         Number of centroids in the TDigest.
 
-        :return: Number of centroids
+        :return: Number of centroids.
         """
         ...
 
@@ -53,7 +53,7 @@ class TDigest:
 
         **Note:** there is a lower limit of `min(n_values, 3)` centroids.
 
-        :param max_centroids: Maximum number of centroids allowed
+        :param max_centroids: Maximum number of centroids allowed.
         """
         ...
 
@@ -68,8 +68,8 @@ class TDigest:
         If `max_centroids` is set in the resulting TDigest, compression is
         performed immediately after merging.
 
-        :param other: Other TDigest instance
-        :return: New TDigest representing the merged data
+        :param other: Other TDigest instance.
+        :return: New TDigest representing the merged data.
         """
         ...
 
@@ -81,7 +81,7 @@ class TDigest:
         If `max_centroids` is set in the calling TDigest, compression is
         performed immediately after merging.
 
-        :param other: Other TDigest instance
+        :param other: Other TDigest instance.
         """
         ...
 
@@ -95,7 +95,7 @@ class TDigest:
         If `max_centroids` is set, compression is performed immediately
         after updating.
 
-        :param values: Sequence of values to add
+        :param values: Sequence of values to add.
         """
         ...
 
@@ -108,10 +108,10 @@ class TDigest:
         If `max_centroids` is set, compression is performed immediately
         after updating.
 
-        **Note:** When used iteratively, this is very inefficient.
-        Use `batch_update` instead.
+        **Note:** This is inefficient for iterative use.
+        Use `batch_update` whenever possible.
 
-        :param value: Single value to add
+        :param value: Single value to add.
         """
         ...
 
@@ -119,8 +119,8 @@ class TDigest:
         """
         Estimate the value at a given cumulative probability (quantile).
 
-        :param q: Float between 0 and 1 representing cumulative probability
-        :return: Estimated quantile value
+        :param q: Float between 0 and 1 representing cumulative probability.
+        :return: Estimated quantile value.
         """
         ...
 
@@ -130,8 +130,8 @@ class TDigest:
 
         Convenience method, same as `quantile(p/100)`.
 
-        :param p: Number between 0 and 100 (cumulative probability in percent)
-        :return: Estimated percentile value
+        :param p: Number between 0 and 100 (cumulative probability in percent).
+        :return: Estimated percentile value.
         """
         ...
 
@@ -139,8 +139,8 @@ class TDigest:
         """
         Estimate the cumulative probability (rank) of a given value x.
 
-        :param x: Value for which to compute the rank
-        :return: Float between 0 and 1 representing cumulative probability
+        :param x: Value for which to compute the rank.
+        :return: Float between 0 and 1 representing cumulative probability.
         """
         ...
 
@@ -149,9 +149,9 @@ class TDigest:
         Estimate the trimmed mean (truncated mean) of the data,
         excluding values below the `q1` and above the `q2` quantiles.
 
-        :param q1: Lower quantile threshold (0 <= q1 < q2)
-        :param q2: Upper quantile threshold (q1 < q2 <= 1)
-        :return: Trimmed mean value
+        :param q1: Lower quantile threshold (0 <= q1 < q2).
+        :param q2: Upper quantile threshold (q1 < q2 <= 1).
+        :return: Trimmed mean value.
         """
         ...
 
@@ -162,7 +162,7 @@ class TDigest:
         The returned dict contains a key "centroids" that maps to a list of
         centroids, where each centroid is a dict with keys "m" and "c".
 
-        :return: Dictionary representation of the TDigest
+        :return: Dictionary representation of the TDigest.
         """
         ...
 
@@ -174,8 +174,8 @@ class TDigest:
         The dict must have a key "centroids" mapping to a list of centroids.
         Each centroid should be a dict with keys "m" (float) and "c" (float).
 
-        :param tdigest_dict: Dictionary with centroids
-        :return: TDigest instance
+        :param tdigest_dict: Dictionary with centroids.
+        :return: TDigest instance.
         """
         ...
 
@@ -183,7 +183,7 @@ class TDigest:
         """
         Returns a copy of the TDigest instance.
 
-        :return: Copy of the TDigest instance
+        :return: Copy of the TDigest instance.
         """
         ...
 
@@ -191,7 +191,7 @@ class TDigest:
         """
         Returns a copy of the TDigest instance.
 
-        :return: Copy of the TDigest instance
+        :return: Copy of the TDigest instance.
         """
         ...
 
@@ -199,7 +199,7 @@ class TDigest:
         """
         Returns a copy of the TDigest instance.
 
-        :return: Copy of the TDigest instance
+        :return: Copy of the TDigest instance.
         """
         ...
 
@@ -208,7 +208,7 @@ class TDigest:
         Enables pickle support by returning a tuple (callable, args) that
         can be used to reconstruct the TDigest.
 
-        :return: Tuple of (reconstruction function, arguments)
+        :return: Tuple of (reconstruction function, arguments).
         """
         ...
 
@@ -216,7 +216,7 @@ class TDigest:
         """
         Return the number of centroids in the TDigest.
 
-        :return: Number of centroids
+        :return: Number of centroids.
         """
         ...
 
@@ -224,7 +224,7 @@ class TDigest:
         """
         Return a string representation of the TDigest.
 
-        :return: String representation of the TDigest
+        :return: String representation of the TDigest.
         """
         ...
 
@@ -235,8 +235,8 @@ class TDigest:
         Returns True if all centroids are the same and `max_centroids` has the
         same value, otherwise False.
 
-        :param other: Other TDigest instance
-        :return: Bool representing equality
+        :param other: Other TDigest instance.
+        :return: Bool representing equality.
         """
         ...
 
@@ -247,8 +247,8 @@ class TDigest:
         Returns False if all centroids are the same and `max_centroids` has the
         same value, otherwise True.
 
-        :param other: Other TDigest instance
-        :return: Bool representing inequality
+        :param other: Other TDigest instance.
+        :return: Bool representing inequality.
         """
         ...
 
@@ -258,8 +258,8 @@ class TDigest:
         
         Equivalent to `self.merge(other)`, but using the `+` operator.
 
-        :param other: Other TDigest instance
-        :return: New TDigest representing the merged data
+        :param other: Other TDigest instance.
+        :return: New TDigest representing the merged data.
         """
         ...
 
@@ -269,7 +269,7 @@ class TDigest:
         
         Equivalent to `self.merge_inplace(other)`, but using the `+=` operator.
 
-        :param other: Other TDigest instance
+        :param other: Other TDigest instance.
         """
         ...
 
@@ -289,8 +289,11 @@ def merge_all(
     If `max_centroids` is set in the resulting TDigest, compression is
     performed immediately after merging.
 
-    :param digests: Sequence of TDigest instances to merge
-    :param optional max_centroids: Maximum number of centroids to maintain
-    :return: New TDigest representing the merged data
+    :param digests: Sequence of TDigest instances to merge.
+    :param optional max_centroids:
+        Maximum number of centroids to maintain.
+        If None, the value is determined from the source TDigests.
+        Default is None.
+    :return: New TDigest representing the merged data.
     """
     ...
