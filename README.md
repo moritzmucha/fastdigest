@@ -1,11 +1,11 @@
 # fastDigest
 
 [![PyPI](https://img.shields.io/pypi/v/fastdigest.svg)](https://pypi.org/project/fastdigest)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Build](https://github.com/moritzmucha/fastdigest/actions/workflows/build.yml/badge.svg)](https://github.com/moritzmucha/fastdigest/actions)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-***fastDigest*** is a Python extension module that provides a lightning-fast implementation of the [t-digest algorithm](https://github.com/tdunning/t-digest). Built on top of highly optimized Rust code, *fastDigest* enables lightweight and accurate quantile and rank estimation for streaming data.
+***fastDigest*** is a Python extension module that provides a lightning-fast implementation of the [t-digest algorithm](https://github.com/tdunning/t-digest). Built on a highly optimized Rust backend, *fastDigest* enables lightweight and accurate quantile and rank estimation for streaming data.
 
 ## Table of Contents
 
