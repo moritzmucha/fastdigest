@@ -286,6 +286,24 @@ def test_len():
     )
     assert length == 3, f"Expected 3, got {length}"
 
+def test_eq():
+    digest1 = TDigest([1.0, 2.0, 3.0])
+    digest2 = TDigest([1.0, 2.0, 3.0])
+    digest3 = TDigest([1.0, 2.0, 3.1])
+    digest4 = TDigest([1.0, 2.0, 3.0], max_centroids=3)
+    assert digest1 == digest2
+    assert not digest1 == digest3
+    assert not digest1 == digest4
+
+def test_ne():
+    digest1 = TDigest([1.0, 2.0, 3.0])
+    digest2 = TDigest([1.0, 2.0, 3.0])
+    digest3 = TDigest([1.0, 2.0, 3.1])
+    digest4 = TDigest([1.0, 2.0, 3.0], max_centroids=3)
+    assert not digest1 != digest2
+    assert digest1 != digest3
+    assert digest1 != digest4
+
 def test_repr():
     digest = TDigest([1.0, 2.0, 3.0])
     rep = repr(digest)
@@ -377,6 +395,8 @@ if __name__ == "__main__":
     test_deepcopy()
     test_pickle_unpickle()
     test_len()
+    test_eq()
+    test_ne()
     test_repr()
     test_add()
     test_iadd()

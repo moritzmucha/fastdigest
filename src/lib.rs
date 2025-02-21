@@ -293,6 +293,36 @@ impl PyTDigest {
         ))
     }
 
+    /// Magic method: enables equality checking (==)
+    pub fn __eq__(&self, other: &Self) -> PyResult<bool> {
+        if self.max_centroids != other.max_centroids {
+            return Ok(false);
+        }
+
+        // Compare centroids
+        let self_centroids = self.digest.centroids();
+        let other_centroids = other.digest.centroids();
+
+        if self_centroids.len() != other_centroids.len() {
+            return Ok(false);
+        }
+
+        for (c1, c2) in self_centroids
+            .iter()
+            .zip(other_centroids.iter()) {
+            if !centroids_equal(c1, c2) {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Magic method: enables inequality checking (!=)
+    pub fn __ne__(&self, other: &Self) -> PyResult<bool> {
+        self.__eq__(other).map(|eq| !eq)
+    }
+
     /// Magic method: dig1 + dig2 returns dig1.merge(dig2).
     pub fn __add__(&self, other: &Self) -> PyResult<Self> {
         self.merge(&other)
@@ -357,6 +387,12 @@ pub fn merge_all(
         digest: combined_digest,
         max_centroids: final_max,
     })
+}
+
+/// Helper function to compare two Centroids
+fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
+    (c1.mean - c2.mean).abs() < f64::EPSILON
+        && (c1.weight - c2.weight).abs() < f64::EPSILON
 }
 
 /// The Python module definition.

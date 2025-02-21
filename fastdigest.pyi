@@ -228,6 +228,30 @@ class TDigest:
         """
         ...
 
+    def __eq__(self, other: Any) -> bool:
+        """
+        Check equality between two TDigest instances.
+
+        Returns True if all centroids are the same and `max_centroids` has the
+        same value, otherwise False.
+
+        :param other: Other TDigest instance
+        :return: Bool representing equality
+        """
+        ...
+
+    def __ne__(self, other: Any) -> bool:
+        """
+        Check inequality between two TDigest instances.
+
+        Returns False if all centroids are the same and `max_centroids` has the
+        same value, otherwise True.
+
+        :param other: Other TDigest instance
+        :return: Bool representing inequality
+        """
+        ...
+
     def __add__(self, other: "TDigest") -> "TDigest":
         """
         Merge this TDigest with another, returning a new TDigest.
