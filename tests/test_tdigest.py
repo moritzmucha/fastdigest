@@ -5,6 +5,12 @@ from copy import copy, deepcopy
 from fastdigest import TDigest, merge_all
 
 
+def check_median(digest: TDigest, expected: float):
+    quantile_est = digest.quantile(0.5)
+    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+        f"Expected median ~{expected}, got {quantile_est}"
+    )
+
 def check_tdigest_equality(
         original: TDigest,
         new: TDigest,
@@ -51,6 +57,29 @@ def test_init():
     with pytest.raises(ValueError):
         TDigest([])
 
+def test_get_max_centroids():
+    digest = TDigest([1, 2, 3, 4, 5])
+    max_centroids = digest.max_centroids
+    assert max_centroids is None, f"Expected None, got {max_centroids}"
+    digest = TDigest([1, 2, 3, 4, 5], max_centroids=3)
+    max_centroids = digest.max_centroids
+    assert isinstance(max_centroids, int), (
+        f"Expected int, got {type(max_centroids).__name__}"
+    )
+    assert max_centroids == 3, f"Expected 3, got {max_centroids}"
+
+def test_set_max_centroids():
+    digest = TDigest([1, 2, 3, 4, 5])
+    digest.max_centroids = 3
+    max_centroids = digest.max_centroids
+    assert isinstance(max_centroids, int), (
+        f"Expected int, got {type(max_centroids).__name__}"
+    )
+    assert max_centroids == 3, f"Expected 3, got {max_centroids}"
+    digest.max_centroids = None
+    max_centroids = digest.max_centroids
+    assert max_centroids is None, f"Expected None, got {max_centroids}"
+
 def test_n_values():
     digest = TDigest([1.0, 2.0, 3.0])
     n_values = digest.n_values
@@ -77,11 +106,7 @@ def test_compress():
         f"Expected between 3 and 5 centroids, got {compressed_centroids}"
     )
     # Check that quantile estimates remain plausible after compression
-    quantile_est = digest.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest, 50.5)
 
 def test_merge():
     # Create two TDigest instances from non-overlapping ranges
@@ -89,11 +114,7 @@ def test_merge():
     digest2 = TDigest(range(51, 101))
     merged = digest1.merge(digest2)
     # The median of the merged data should be around 50.5
-    quantile_est = merged.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(merged, 50.5)
     assert len(merged) == 100, (
         f"Expected 100 centroids, got {len(merged)}"
     )
@@ -118,12 +139,7 @@ def test_merge_inplace():
     digest1 = TDigest(range(1, 51))
     digest2 = TDigest(range(51, 101))
     digest1.merge_inplace(digest2)
-    # The median of the merged data should be around 50.5
-    quantile_est = digest1.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest1, 50.5)
     assert len(digest1) == 100, (
         f"Expected 100 centroids, got {len(digest1)}"
     )
@@ -141,22 +157,13 @@ def test_merge_inplace():
 def test_batch_update():
     digest = TDigest(range(1, 51))
     digest.batch_update(range(51, 101))
-    # The median of the merged data should be around 50.5
-    quantile_est = digest.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest, 50.5)
     assert len(digest) == 100, (
         f"Expected 100 centroids, got {len(digest)}"
     )
     digest = TDigest(range(1, 51), max_centroids=3)
     digest.batch_update(range(51, 101))
-    quantile_est = digest.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest, 50.5)
     assert len(digest) == 3, (
         f"Expected 3 centroids, got {len(digest)}"
     )
@@ -164,44 +171,26 @@ def test_batch_update():
 def test_update():
     digest = TDigest(range(1, 100))
     digest.update(100)
-    # The median of the merged data should be around 50.5
-    quantile_est = digest.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest, 50.5)
     assert len(digest) == 100, (
         f"Expected 100 centroids, got {len(digest)}"
     )
     digest = TDigest(range(1, 100), max_centroids=3)
     digest.update(100)
-    quantile_est = digest.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest, 50.5)
     assert len(digest) == 3, (
         f"Expected 3 centroids, got {len(digest)}"
     )
 
 def test_quantile():
-    # Create a digest from 1..100
-    digest = TDigest(range(1, 101))
-    # For a uniformly distributed dataset, the median should be near 50.5
-    q = 0.5
-    quantile_est = digest.quantile(q)
-    expected = 1 + q * (100 - 1)  # 1 + 0.5*99 = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected ~{expected}, got {quantile_est}"
-    )
+    digest = TDigest(range(2, 199))
+    # For a uniformly distributed dataset, the median should be 100
+    check_median(digest, 100.)
 
 def test_percentile():
-    # Create a digest from 1..100
-    digest = TDigest(range(1, 101))
-    # For a uniformly distributed dataset, the median should be near 50.5
-    p = 50
-    quantile_est = digest.percentile(p)
-    expected = 1 + (p / 100) * (100 - 1)  # 1 + 0.5*99 = 50.5
+    digest = TDigest(range(2, 199))
+    quantile_est = digest.percentile(50)
+    expected = 100
     assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
         f"Expected ~{expected}, got {quantile_est}"
     )
@@ -321,63 +310,51 @@ def test_add():
     digest1 = TDigest(range(1, 51))
     digest2 = TDigest(range(51, 101))
     merged = digest1 + digest2
-    # The median of the merged data should be around 50.5
-    quantile_est = merged.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(merged, 50.5)
 
 def test_iadd():
     # Create two TDigest instances from non-overlapping ranges
     digest1 = TDigest(range(1, 51))
     digest2 = TDigest(range(51, 101))
     digest1 += digest2
-    # The median of the merged data should be around 50.5
-    quantile_est = digest1.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    check_median(digest1, 50.5)
 
 def test_merge_all():
     digests = [TDigest(range(i, i+10)) for i in range(1, 100, 10)]
     assert len(digests) == 10
     merged = merge_all(digests)
     # The median of the merged data should be around 50.5
-    quantile_est = merged.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
+    median = 50.5
+    check_median(merged, median)
     assert len(merged) == 100, (
         f"Expected 100 centroids, got {len(merged)}"
     )
-    merged = merge_all(digests, max_centroids=3)
-    quantile_est = merged.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
-    assert len(merged) == 3, (
-        f"Expected 3 centroids, got {len(merged)}"
+    max_c = 3
+    merged = merge_all(digests, max_centroids=max_c)
+    check_median(merged, median)
+    assert len(merged) == max_c, (
+        f"Expected {max_c} centroids, got {len(merged)}"
     )
     for i, digest in enumerate(digests[:-1]):
         digest.max_centroids = 3 + i
-    digests[-1].max_centroids = 50
     merged = merge_all(digests)
-    quantile_est = merged.quantile(0.5)
-    expected = 50.5
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
+    assert len(merged) == 100, (
+        f"Expected 100 centroids, got {len(merged)}"
     )
-    assert 11 < len(merged) <= 50, (
-        f"Expected between 12 and 29 centroids, got {len(merged)}"
+    min_c = 12
+    max_c = 50
+    digests[-1].max_centroids = max_c
+    merged = merge_all(digests)
+    check_median(merged, median)
+    assert min_c <= len(merged) <= max_c, (
+        f"Expected between {min_c} and {max_c} centroids, got {len(merged)}"
     )
 
 
 if __name__ == "__main__":
     test_init()
+    test_get_max_centroids()
+    test_set_max_centroids()
     test_n_values()
     test_n_centroids()
     test_merge()
