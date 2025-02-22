@@ -42,8 +42,8 @@ impl PyTDigest {
 
     /// Setter property: sets the max_centroids parameter.
     #[setter(max_centroids)]
-    pub fn set_max_centroids(&mut self, max_centroids: usize) {
-        self.max_centroids = Some(max_centroids)
+    pub fn set_max_centroids(&mut self, max_centroids: Option<usize>) {
+        self.max_centroids = max_centroids
     }
 
     /// Getter property: returns the total number of data points ingested.
