@@ -110,4 +110,4 @@ if __name__ == '__main__':
     t_fast = run_benchmark(benchmark_fastdigest, "fastDigest", n, q, r)
 
     if LegacyTDigest is not None:
-        print(f"{"Speedup":>14}: {t_legacy / t_fast:.0f}x")
+        print(f"{'Speedup':>14}: {t_legacy / t_fast:.0f}x")
