@@ -24,8 +24,7 @@ def benchmark_fastdigest(
         max_centroids: int = 1000
     ) -> Tuple[float, float]:
     start = time.perf_counter()
-    digest = TDigest(dataset)
-    digest.compress(max_centroids)
+    digest = TDigest.from_values(dataset, max_centroids=max_centroids)
     result = digest.quantile(q)
     elapsed_ms = 1000 * (time.perf_counter() - start)
     return result, elapsed_ms

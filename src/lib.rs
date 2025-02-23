@@ -7,28 +7,41 @@ use tdigests::{Centroid, TDigest};
 #[pyclass(name = "TDigest", module = "fastdigest")]
 #[derive(Clone)]
 pub struct PyTDigest {
-    digest: TDigest,
+    digest: Option<TDigest>,
     max_centroids: Option<usize>,
 }
 
 #[pymethods]
 impl PyTDigest {
-    /// Constructs a new TDigest from a non-empty list of float values.
+    /// Constructs a new empty TDigest instance.
     #[new]
+    #[pyo3(signature = (max_centroids=None))]
+    pub fn new(max_centroids: Option<usize>) -> PyResult<Self> {
+        Ok(Self {
+            digest: None,
+            max_centroids,
+        })
+    }
+
+    /// Constructs a new TDigest from a sequence of float values.
+    #[staticmethod]
     #[pyo3(signature = (values, max_centroids=None))]
-    pub fn new(
+    pub fn from_values(
         values: Vec<f64>,
         max_centroids: Option<usize>,
     ) -> PyResult<Self> {
         if values.is_empty() {
-            Err(PyValueError::new_err("Values list cannot be empty"))
+            Ok(Self {
+                digest: None,
+                max_centroids,
+            })
         } else {
             let mut digest = TDigest::from_values(values);
             if let Some(max) = max_centroids {
                 digest.compress(max);
             }
             Ok(Self {
-                digest,
+                digest: Some(digest),
                 max_centroids,
             })
         }
@@ -49,26 +62,36 @@ impl PyTDigest {
     /// Getter property: returns the total number of data points ingested.
     #[getter(n_values)]
     pub fn get_n_values(&self) -> PyResult<u64> {
-        let total_weight: f64 =
-            self.digest.centroids().iter().map(|c| c.weight).sum();
-        Ok(total_weight.round() as u64)
+        if let Some(d) = &self.digest {
+            let total_weight: f64 =
+                d.centroids().iter().map(|c| c.weight).sum();
+            Ok(total_weight.round() as u64)
+        } else {
+            Ok(0)
+        }
     }
 
     /// Getter property: returns the number of centroids.
     #[getter(n_centroids)]
     pub fn get_n_centroids(&self) -> PyResult<usize> {
-        Ok(self.digest.centroids().len())
+        if let Some(d) = &self.digest {
+            Ok(d.centroids().len())
+        } else {
+            Ok(0)
+        }
     }
 
     /// Compresses the digest (in-place) to `max_centroids`.
     /// Note that for N values ingested, it won't go below min(N, 3).
     pub fn compress(&mut self, max_centroids: usize) {
-        self.digest.compress(max_centroids);
+        if let Some(d) = self.digest.as_mut() {
+            d.compress(max_centroids);
+        }
     }
 
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&self, other: &Self) -> PyResult<Self> {
-        let max_centroids =
+        let combined_max =
             if compare_options(&self.max_centroids, &other.max_centroids)
                 == Ordering::Less
             {
@@ -76,32 +99,85 @@ impl PyTDigest {
             } else {
                 self.max_centroids
             };
+        match (&self.digest, &other.digest) {
+            (Some(d1), Some(d2)) => {
+                let mut merged = d1.merge(d2);
+                if let Some(max) = combined_max {
+                    merged.compress(max);
+                }
+                Ok(Self {
+                    digest: Some(merged),
+                    max_centroids: combined_max,
+                })
+            }
 
-        let mut digest = self.digest.merge(&other.digest);
-        if let Some(max) = max_centroids {
-            digest.compress(max);
+            (Some(d1), None) => {
+                let mut merged = d1.clone();
+                if let Some(max) = combined_max {
+                    merged.compress(max);
+                }
+                Ok(Self {
+                    digest: Some(merged),
+                    max_centroids: combined_max,
+                })
+            }
+
+            (None, Some(d2)) => {
+                let mut merged = d2.clone();
+                if let Some(max) = combined_max {
+                    merged.compress(max);
+                }
+                Ok(Self {
+                    digest: Some(merged),
+                    max_centroids: combined_max,
+                })
+            }
+
+            (None, None) => Ok(Self {
+                digest: None,
+                max_centroids: combined_max,
+            }),
         }
-
-        Ok(Self {
-            digest,
-            max_centroids,
-        })
     }
 
     /// Merges this digest with another, modifying the current instance.
     pub fn merge_inplace(&mut self, other: &Self) {
-        self.digest = self.digest.merge(&other.digest);
-        if let Some(max) = self.max_centroids {
-            self.digest.compress(max);
+        match (&mut self.digest, &other.digest) {
+            (Some(d1), Some(d2)) => {
+                let mut merged = d1.merge(d2);
+                if let Some(max) = self.max_centroids {
+                    merged.compress(max);
+                }
+                *d1 = merged;
+            }
+
+            (None, Some(d2)) => {
+                let mut merged = d2.clone();
+                if let Some(max) = self.max_centroids {
+                    merged.compress(max);
+                }
+                self.digest = Some(merged);
+            }
+
+            // If other.digest is None (or both are None), leave self unmodified.
+            _ => {}
         }
     }
 
     /// Updates the digest (in-place) with a non-empty list of float values.
     pub fn batch_update(&mut self, values: Vec<f64>) {
-        let new_digest = TDigest::from_values(values);
-        self.digest = self.digest.merge(&new_digest);
-        if let Some(max) = self.max_centroids {
-            self.digest.compress(max);
+        let mut tmp_digest = TDigest::from_values(values);
+        if let Some(d) = &self.digest {
+            let mut merged = d.merge(&tmp_digest);
+            if let Some(max) = self.max_centroids {
+                merged.compress(max);
+            }
+            self.digest = Some(merged);
+        } else {
+            if let Some(max) = self.max_centroids {
+                tmp_digest.compress(max);
+            }
+            self.digest = Some(tmp_digest);
         }
     }
 
@@ -115,7 +191,11 @@ impl PyTDigest {
         if q < 0.0 || q > 1.0 {
             return Err(PyValueError::new_err("q must be between 0 and 1."));
         }
-        Ok(self.digest.estimate_quantile(q))
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_quantile(q))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
     }
 
     /// Estimates the percentile for a given cumulative probability `p` (%).
@@ -123,56 +203,70 @@ impl PyTDigest {
         if p < 0.0 || p > 100.0 {
             return Err(PyValueError::new_err("p must be between 0 and 100."));
         }
-        Ok(self.digest.estimate_quantile(0.01 * p))
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_quantile(0.01 * p))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
     }
 
     /// Estimates the rank (cumulative probability) of a given value `x`.
     pub fn rank(&self, x: f64) -> PyResult<f64> {
-        Ok(self.digest.estimate_rank(x))
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_rank(x))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
     }
 
     /// Returns the trimmed mean of the data between the q1 and q2 quantiles.
     pub fn trimmed_mean(&self, q1: f64, q2: f64) -> PyResult<f64> {
         if q1 < 0.0 || q2 > 1.0 || q1 >= q2 {
             return Err(PyValueError::new_err(
-                "q1 must be >= 0, q2 must be <= 1, and q1 < q2",
+                "q1 must be >= 0, q2 must be <= 1, and q1 < q2.",
             ));
         }
 
-        let centroids = self.digest.centroids();
-        let total_weight: f64 = centroids.iter().map(|c| c.weight).sum();
-        if total_weight == 0.0 {
-            return Err(PyValueError::new_err("Total weight is zero"));
-        }
-        let lower_weight_threshold = q1 * total_weight;
-        let upper_weight_threshold = q2 * total_weight;
-
-        let mut cum_weight = 0.0;
-        let mut trimmed_sum = 0.0;
-        let mut trimmed_weight = 0.0;
-        for centroid in centroids {
-            let c_start = cum_weight;
-            let c_end = cum_weight + centroid.weight;
-            cum_weight = c_end;
-
-            if c_end <= lower_weight_threshold {
-                continue;
+        if let Some(d) = &self.digest {
+            let centroids = d.centroids();
+            let total_weight: f64 = centroids.iter().map(|c| c.weight).sum();
+            if total_weight == 0.0 {
+                return Err(PyValueError::new_err("Total weight is zero."));
             }
-            if c_start >= upper_weight_threshold {
-                break;
+            let lower_weight_threshold = q1 * total_weight;
+            let upper_weight_threshold = q2 * total_weight;
+
+            let mut cum_weight = 0.0;
+            let mut trimmed_sum = 0.0;
+            let mut trimmed_weight = 0.0;
+            for centroid in centroids {
+                let c_start = cum_weight;
+                let c_end = cum_weight + centroid.weight;
+                cum_weight = c_end;
+
+                if c_end <= lower_weight_threshold {
+                    continue;
+                }
+                if c_start >= upper_weight_threshold {
+                    break;
+                }
+
+                let overlap = (c_end.min(upper_weight_threshold)
+                    - c_start.max(lower_weight_threshold))
+                .max(0.0);
+                trimmed_sum += overlap * centroid.mean;
+                trimmed_weight += overlap;
             }
 
-            let overlap = (c_end.min(upper_weight_threshold)
-                - c_start.max(lower_weight_threshold))
-            .max(0.0);
-            trimmed_sum += overlap * centroid.mean;
-            trimmed_weight += overlap;
+            if trimmed_weight == 0.0 {
+                return Err(PyValueError::new_err(
+                    "No data in the trimmed range.",
+                ));
+            }
+            Ok(trimmed_sum / trimmed_weight)
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
         }
-
-        if trimmed_weight == 0.0 {
-            return Err(PyValueError::new_err("No data in the trimmed range"));
-        }
-        Ok(trimmed_sum / trimmed_weight)
     }
 
     /// Returns a dictionary representation of the digest.
@@ -188,11 +282,13 @@ impl PyTDigest {
         }
 
         let centroid_list = PyList::empty(py);
-        for centroid in self.digest.centroids() {
-            let centroid_dict = PyDict::new(py);
-            centroid_dict.set_item("m", centroid.mean)?;
-            centroid_dict.set_item("c", centroid.weight)?;
-            centroid_list.append(centroid_dict)?;
+        if let Some(d) = &self.digest {
+            for centroid in d.centroids() {
+                let centroid_dict = PyDict::new(py);
+                centroid_dict.set_item("m", centroid.mean)?;
+                centroid_dict.set_item("c", centroid.weight)?;
+                centroid_list.append(centroid_dict)?;
+            }
         }
         dict.set_item("centroids", centroid_list)?;
         Ok(dict.into())
@@ -206,7 +302,7 @@ impl PyTDigest {
     ) -> PyResult<Self> {
         let centroids_obj =
             tdigest_dict.get_item("centroids")?.ok_or_else(|| {
-                PyKeyError::new_err("Key 'centroids' not found in dictionary")
+                PyKeyError::new_err("Key 'centroids' not found in dictionary.")
             })?;
         let centroids_list: &Bound<'py, PyList> = centroids_obj.downcast()?;
         let mut centroids = Vec::with_capacity(centroids_list.len());
@@ -215,22 +311,23 @@ impl PyTDigest {
             let mean: f64 = d
                 .get_item("m")?
                 .ok_or_else(|| {
-                    PyKeyError::new_err("Centroid missing 'm' key")
+                    PyKeyError::new_err("Centroid missing 'm' key.")
                 })?
                 .extract()?;
             let weight: f64 = d
                 .get_item("c")?
                 .ok_or_else(|| {
-                    PyKeyError::new_err("Centroid missing 'c' key")
+                    PyKeyError::new_err("Centroid missing 'c' key.")
                 })?
                 .extract()?;
             centroids.push(Centroid::new(mean, weight));
         }
-        if centroids.is_empty() {
-            return Err(PyValueError::new_err(
-                "Centroids list cannot be empty",
-            ));
-        }
+
+        let digest = if !centroids.is_empty() {
+            Some(TDigest::from_centroids(centroids))
+        } else {
+            None
+        };
 
         // Extract max_centroids as an Option<usize>.
         let max_centroids: Option<usize> = tdigest_dict
@@ -239,7 +336,7 @@ impl PyTDigest {
             .transpose()?;
 
         Ok(Self {
-            digest: TDigest::from_centroids(centroids),
+            digest,
             max_centroids,
         })
     }
@@ -285,7 +382,7 @@ impl PyTDigest {
             "TDigest(max_centroids={})",
             match self.get_max_centroids()? {
                 Some(max_centroids) => max_centroids.to_string(),
-                None => String::from("None")
+                None => String::from("None"),
             }
         ))
     }
@@ -295,24 +392,25 @@ impl PyTDigest {
         if self.max_centroids != other.max_centroids {
             return Ok(false);
         }
-
-        // Compare centroids
-        let self_centroids = self.digest.centroids();
-        let other_centroids = other.digest.centroids();
-
-        if self_centroids.len() != other_centroids.len() {
-            return Ok(false);
-        }
-
-        for (c1, c2) in self_centroids
-            .iter()
-            .zip(other_centroids.iter()) {
-            if !centroids_equal(c1, c2) {
-                return Ok(false);
+        match (&self.digest, &other.digest) {
+            (Some(d1), Some(d2)) => {
+                let self_centroids = d1.centroids();
+                let other_centroids = d2.centroids();
+                if self_centroids.len() != other_centroids.len() {
+                    return Ok(false);
+                }
+                for (c1, c2) in
+                    self_centroids.iter().zip(other_centroids.iter())
+                {
+                    if !centroids_equal(c1, c2) {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
             }
+            (None, None) => Ok(true),
+            _ => Ok(false),
         }
-
-        Ok(true)
     }
 
     /// Magic method: enables inequality checking (!=)
@@ -364,26 +462,39 @@ pub fn merge_all(
             .flatten()
     };
 
-    // Start with the first digest; assume TDigest implements Clone.
-    let mut combined_digest = {
-        let first = digests[0].borrow(py);
-        first.digest.clone()
-    };
-
-    // Merge the remaining digests.
-    for d in digests.iter().skip(1) {
+    // Find the first non-empty digest.
+    let mut combined_digest_opt: Option<TDigest> = None;
+    for d in &digests {
         let d_borrowed = d.borrow(py);
-        combined_digest = combined_digest.merge(&d_borrowed.digest);
+        if let Some(ref digest) = d_borrowed.digest {
+            combined_digest_opt = Some(digest.clone());
+            break;
+        }
     }
 
-    // Optionally compress.
-    if let Some(max) = final_max {
-        combined_digest.compress(max);
+    if let Some(mut combined_digest) = combined_digest_opt {
+        // Merge the remaining non-empty digests.
+        for d in digests.iter().skip(1) {
+            let d_borrowed = d.borrow(py);
+            if let Some(ref digest) = d_borrowed.digest {
+                combined_digest = combined_digest.merge(digest);
+            }
+        }
+        // Optionally compress.
+        if let Some(max) = final_max {
+            combined_digest.compress(max);
+        }
+        Ok(PyTDigest {
+            digest: Some(combined_digest),
+            max_centroids: final_max,
+        })
+    } else {
+        // All TDigests are empty; return an empty new instance.
+        Ok(PyTDigest {
+            digest: None,
+            max_centroids: final_max,
+        })
     }
-    Ok(PyTDigest {
-        digest: combined_digest,
-        max_centroids: final_max,
-    })
 }
 
 /// Helper function to compare two Centroids

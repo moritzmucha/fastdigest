@@ -2,11 +2,26 @@ from typing import Dict, List, Sequence, Tuple, Optional, Union, Any
 
 class TDigest:
     def __init__(
-            self, values: Sequence[Union[float, int]],
+            self,
             max_centroids: Optional[int] = None
         ) -> None:
         """
-        Initialize a TDigest with a non-empty sequence of numerical values.
+        Initialize an empty TDigest instance.
+
+        :param optional max_centroids:
+            Maximum number of centroids to maintain. When provided, compression
+            is automatically performed during merging and updating operations
+            to keep the digest small and efficient. Default is None.
+        """
+        ...
+
+    @staticmethod
+    def from_values(
+            values: Sequence[Union[float, int]],
+            max_centroids: Optional[int] = None
+        ) -> "TDigest":
+        """
+        Initialize a TDigest with a sequence of numerical values.
 
         :param values: Sequence of float or int values.
         :param optional max_centroids:

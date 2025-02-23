@@ -41,27 +41,43 @@ def check_tdigest_equality(
 
 
 def test_init():
+    digest = TDigest()
+    assert digest.max_centroids is None
+    assert digest.n_values == 0
+    assert digest.n_centroids == 0
+
+    digest = TDigest(max_centroids=3)
+    assert digest.max_centroids == 3
+    assert digest.n_values == 0
+    assert digest.n_centroids == 0
+
+    # Test that initialization with values raises TypeError
+    values = [1.0, 2.0, 3.0, 4.0, 5.0]
+    with pytest.raises(TypeError):
+        TDigest(values)
+
+def test_from_values():
     # Test proper initialization with a non-empty list
     values = [1.0, 2.0, 3.0, 4.0, 5.0]
-    digest = TDigest(values)
+    digest = TDigest.from_values(values)
     assert digest.max_centroids is None
     assert digest.n_values == 5
     assert digest.n_centroids == 5
 
-    digest = TDigest(values, max_centroids=3)
+    digest = TDigest.from_values(values, max_centroids=3)
     assert digest.max_centroids == 3
     assert digest.n_values == 5
     assert digest.n_centroids == 3
 
-    # Test that an empty list raises ValueError
-    with pytest.raises(ValueError):
-        TDigest([])
+    # Test that an empty list produces an empty TDigest
+    digest = TDigest.from_values([])
+    assert digest == TDigest()
 
 def test_get_max_centroids():
-    digest = TDigest([1, 2, 3, 4, 5])
+    digest = TDigest.from_values([1, 2, 3, 4, 5])
     max_centroids = digest.max_centroids
     assert max_centroids is None, f"Expected None, got {max_centroids}"
-    digest = TDigest([1, 2, 3, 4, 5], max_centroids=3)
+    digest = TDigest.from_values([1, 2, 3, 4, 5], max_centroids=3)
     max_centroids = digest.max_centroids
     assert isinstance(max_centroids, int), (
         f"Expected int, got {type(max_centroids).__name__}"
@@ -69,7 +85,7 @@ def test_get_max_centroids():
     assert max_centroids == 3, f"Expected 3, got {max_centroids}"
 
 def test_set_max_centroids():
-    digest = TDigest([1, 2, 3, 4, 5])
+    digest = TDigest.from_values([1, 2, 3, 4, 5])
     digest.max_centroids = 3
     max_centroids = digest.max_centroids
     assert isinstance(max_centroids, int), (
@@ -81,7 +97,7 @@ def test_set_max_centroids():
     assert max_centroids is None, f"Expected None, got {max_centroids}"
 
 def test_n_values():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     n_values = digest.n_values
     assert isinstance(n_values, int), (
         f"Expected int, got {type(n_values).__name__}"
@@ -89,7 +105,7 @@ def test_n_values():
     assert n_values == 3, f"Expected 3, got {n_values}"
 
 def test_n_centroids():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     n_centroids = digest.n_centroids
     assert isinstance(n_centroids, int), (
         f"Expected int, got {type(n_centroids).__name__}"
@@ -97,7 +113,7 @@ def test_n_centroids():
     assert n_centroids == 3, f"Expected 3, got {n_centroids}"
 
 def test_compress():
-    digest = TDigest(range(1, 101))
+    digest = TDigest.from_values(range(1, 101))
     # Compress the digest to at most 5 centroids. Note that for N values
     # ingested, it will never go below min(N, 3) centroids.
     digest.compress(5)
@@ -110,8 +126,8 @@ def test_compress():
 
 def test_merge():
     # Create two TDigest instances from non-overlapping ranges
-    digest1 = TDigest(range(1, 51))
-    digest2 = TDigest(range(51, 101))
+    digest1 = TDigest.from_values(range(1, 51))
+    digest2 = TDigest.from_values(range(51, 101))
     merged = digest1.merge(digest2)
     # The median of the merged data should be around 50.5
     check_median(merged, 50.5)
@@ -136,8 +152,8 @@ def test_merge():
 
 def test_merge_inplace():
     # Create two TDigest instances from non-overlapping ranges
-    digest1 = TDigest(range(1, 51))
-    digest2 = TDigest(range(51, 101))
+    digest1 = TDigest.from_values(range(1, 51))
+    digest2 = TDigest.from_values(range(51, 101))
     digest1.merge_inplace(digest2)
     check_median(digest1, 50.5)
     assert len(digest1) == 100, (
@@ -155,13 +171,13 @@ def test_merge_inplace():
     )
 
 def test_batch_update():
-    digest = TDigest(range(1, 51))
+    digest = TDigest.from_values(range(1, 51))
     digest.batch_update(range(51, 101))
     check_median(digest, 50.5)
     assert len(digest) == 100, (
         f"Expected 100 centroids, got {len(digest)}"
     )
-    digest = TDigest(range(1, 51), max_centroids=3)
+    digest = TDigest.from_values(range(1, 51), max_centroids=3)
     digest.batch_update(range(51, 101))
     check_median(digest, 50.5)
     assert len(digest) == 3, (
@@ -169,13 +185,13 @@ def test_batch_update():
     )
 
 def test_update():
-    digest = TDigest(range(1, 100))
+    digest = TDigest.from_values(range(1, 100))
     digest.update(100)
     check_median(digest, 50.5)
     assert len(digest) == 100, (
         f"Expected 100 centroids, got {len(digest)}"
     )
-    digest = TDigest(range(1, 100), max_centroids=3)
+    digest = TDigest.from_values(range(1, 100), max_centroids=3)
     digest.update(100)
     check_median(digest, 50.5)
     assert len(digest) == 3, (
@@ -183,12 +199,12 @@ def test_update():
     )
 
 def test_quantile():
-    digest = TDigest(range(2, 199))
+    digest = TDigest.from_values(range(2, 199))
     # For a uniformly distributed dataset, the median should be 100
     check_median(digest, 100.)
 
 def test_percentile():
-    digest = TDigest(range(2, 199))
+    digest = TDigest.from_values(range(2, 199))
     quantile_est = digest.percentile(50)
     expected = 100
     assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
@@ -196,7 +212,7 @@ def test_percentile():
     )
 
 def test_rank():
-    digest = TDigest(range(1, 101))
+    digest = TDigest.from_values(range(1, 101))
     x = 50
     rank_est = digest.rank(x)
     # For uniform data, expected rank is (x - min)/(max - min)
@@ -209,7 +225,7 @@ def test_rank():
 def test_trimmed_mean():
     values = list(range(101))
     values.append(10_000)
-    digest = TDigest(values)
+    digest = TDigest.from_values(values)
     # 1st percentile is 1.01, 99th percentile is 99.99. (2 + 99) / 2 = 50.5
     trimmed = digest.trimmed_mean(0.01, 0.99)
     expected = 50.5
@@ -221,20 +237,28 @@ def test_trimmed_mean():
         digest.trimmed_mean(0.9, 0.1)
 
 def test_to_from_dict():
-    original = TDigest([1.0, 2.0, 3.0])
+    original = TDigest.from_values([1.0, 2.0, 3.0])
     digest_dict = original.to_dict()
     assert isinstance(digest_dict, dict), (
         f"Expected dict, got {type(digest_dict).__name__}"
     )
     new = TDigest.from_dict(digest_dict)
     check_tdigest_equality(original, new)
-    original = TDigest(range(1, 101), max_centroids=3)
+    original = TDigest.from_values(range(1, 101), max_centroids=3)
     digest_dict = original.to_dict()
     new = TDigest.from_dict(digest_dict)
     check_tdigest_equality(original, new)
+    original = TDigest()
+    digest_dict = original.to_dict()
+    assert isinstance(digest_dict, dict), (
+        f"Expected dict, got {type(digest_dict).__name__}"
+    )
+    new = TDigest.from_dict(digest_dict)
+    assert isinstance(new, TDigest)
+    assert len(original) == len(new) == 0
 
 def test_copy():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     digest_copy = digest.copy()
     check_tdigest_equality(digest, digest_copy)
     assert id(digest_copy) != id(digest), (
@@ -242,7 +266,7 @@ def test_copy():
     )
 
 def test_copy_magic():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     digest_copy = copy(digest)
     check_tdigest_equality(digest, digest_copy)
     assert id(digest_copy) != id(digest), (
@@ -250,7 +274,7 @@ def test_copy_magic():
     )
 
 def test_deepcopy():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     digest_copy = deepcopy(digest)
     check_tdigest_equality(digest, digest_copy)
     assert id(digest_copy) != id(digest), (
@@ -258,17 +282,17 @@ def test_deepcopy():
     )
 
 def test_pickle_unpickle():
-    original = TDigest([1.0, 2.0, 3.0])
+    original = TDigest.from_values([1.0, 2.0, 3.0])
     dumped = pickle.dumps(original)
     unpickled = pickle.loads(dumped)
     check_tdigest_equality(original, unpickled)
-    original = TDigest(range(1, 101), max_centroids=3)
+    original = TDigest.from_values(range(1, 101), max_centroids=3)
     dumped = pickle.dumps(original)
     unpickled = pickle.loads(dumped)
     check_tdigest_equality(original, unpickled)
 
 def test_len():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     length = len(digest)
     assert isinstance(length, int), (
         f"Expected int, got {type(length).__name__}"
@@ -276,30 +300,30 @@ def test_len():
     assert length == 3, f"Expected 3, got {length}"
 
 def test_eq():
-    digest1 = TDigest([1.0, 2.0, 3.0])
-    digest2 = TDigest([1.0, 2.0, 3.0])
-    digest3 = TDigest([1.0, 2.0, 3.1])
-    digest4 = TDigest([1.0, 2.0, 3.0], max_centroids=3)
+    digest1 = TDigest.from_values([1.0, 2.0, 3.0])
+    digest2 = TDigest.from_values([1.0, 2.0, 3.0])
+    digest3 = TDigest.from_values([1.0, 2.0, 3.1])
+    digest4 = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=3)
     assert digest1 == digest2
     assert not digest1 == digest3
     assert not digest1 == digest4
 
 def test_ne():
-    digest1 = TDigest([1.0, 2.0, 3.0])
-    digest2 = TDigest([1.0, 2.0, 3.0])
-    digest3 = TDigest([1.0, 2.0, 3.1])
-    digest4 = TDigest([1.0, 2.0, 3.0], max_centroids=3)
+    digest1 = TDigest.from_values([1.0, 2.0, 3.0])
+    digest2 = TDigest.from_values([1.0, 2.0, 3.0])
+    digest3 = TDigest.from_values([1.0, 2.0, 3.1])
+    digest4 = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=3)
     assert not digest1 != digest2
     assert digest1 != digest3
     assert digest1 != digest4
 
 def test_repr():
-    digest = TDigest([1.0, 2.0, 3.0])
+    digest = TDigest.from_values([1.0, 2.0, 3.0])
     rep = repr(digest)
     assert rep == "TDigest(max_centroids=None)", (
         f"__repr__ output unexpected: {rep}"
     )
-    digest = TDigest([1.0, 2.0, 3.0], max_centroids=100)
+    digest = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=100)
     rep = repr(digest)
     assert rep == "TDigest(max_centroids=100)", (
         f"__repr__ output unexpected: {rep}"
@@ -307,20 +331,20 @@ def test_repr():
 
 def test_add():
     # Create two TDigest instances from non-overlapping ranges
-    digest1 = TDigest(range(1, 51))
-    digest2 = TDigest(range(51, 101))
+    digest1 = TDigest.from_values(range(1, 51))
+    digest2 = TDigest.from_values(range(51, 101))
     merged = digest1 + digest2
     check_median(merged, 50.5)
 
 def test_iadd():
     # Create two TDigest instances from non-overlapping ranges
-    digest1 = TDigest(range(1, 51))
-    digest2 = TDigest(range(51, 101))
+    digest1 = TDigest.from_values(range(1, 51))
+    digest2 = TDigest.from_values(range(51, 101))
     digest1 += digest2
     check_median(digest1, 50.5)
 
 def test_merge_all():
-    digests = [TDigest(range(i, i+10)) for i in range(1, 100, 10)]
+    digests = [TDigest.from_values(range(i, i+10)) for i in range(1, 100, 10)]
     assert len(digests) == 10
     merged = merge_all(digests)
     # The median of the merged data should be around 50.5
@@ -353,6 +377,7 @@ def test_merge_all():
 
 if __name__ == "__main__":
     test_init()
+    test_from_values()
     test_get_max_centroids()
     test_set_max_centroids()
     test_n_values()
