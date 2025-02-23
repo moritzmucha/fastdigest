@@ -102,7 +102,7 @@ class TDigest:
 
     def batch_update(self, values: Sequence[Union[float, int]]) -> None:
         """
-        Update the TDigest in-place with a non-empty sequence of numbers.
+        Update the TDigest in-place with a sequence of numbers.
 
         This is equivalent to creating a temporary TDigest from the values
         and merging it into `self`.

@@ -164,8 +164,11 @@ impl PyTDigest {
         }
     }
 
-    /// Updates the digest (in-place) with a non-empty list of float values.
+    /// Updates the digest (in-place) with a sequence of float values.
     pub fn batch_update(&mut self, values: Vec<f64>) {
+        if values.is_empty() {
+            return;
+        }
         let mut tmp_digest = TDigest::from_values(values);
         if let Some(d) = &self.digest {
             let mut merged = d.merge(&tmp_digest);
@@ -448,7 +451,10 @@ pub fn merge_all(
     max_centroids: Option<usize>,
 ) -> PyResult<PyTDigest> {
     if digests.is_empty() {
-        return Err(PyValueError::new_err("No TDigests provided."));
+        return Ok(PyTDigest {
+            digest: None,
+            max_centroids
+        });
     }
 
     let final_max = if max_centroids.is_some() {

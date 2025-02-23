@@ -192,6 +192,7 @@ def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
     "update_method, update_input, start_range, max_centroids", [
         ("batch_update", range(51, 101), range(1, 51), None),
         ("batch_update", range(51, 101), range(1, 51), 10),
+        ("batch_update", [], range(1, 101), None),
         ("update", 100, range(1, 100), 99)
     ]
 )
@@ -378,8 +379,8 @@ def test_merge_all() -> None:
     empty_digests = [TDigest(max_centroids=i) for i in range(10)]
     merged_empty = merge_all(empty_digests)
     assert merged_empty == TDigest(max_centroids=9)
-    with pytest.raises(ValueError):
-        merge_all([])
+    merged_empty = merge_all([], max_centroids=3)
+    assert merged_empty == TDigest(max_centroids=3)
 
 
 if __name__ == "__main__":
