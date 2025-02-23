@@ -14,21 +14,28 @@
   - [Installing from PyPI](#installing-from-pypi)
   - [Installing from source](#installing-from-source)
 - [Usage](#usage)
-  - [Creating a TDigest from values](#creating-a-tdigest-from-values)
-  - [Estimating quantiles and ranks](#estimating-quantiles-and-ranks)
+  - [Initialization](#initialization)
+    - [Initializing a new TDigest](#initializing-a-new-tdigest)
+    - [Creating a TDigest from data](#creating-a-tdigest-from-data)
+  - [Estimating quantile and rank (CDF)](#estimating-quantile-and-rank-cdf)
   - [Estimating the trimmed mean](#estimating-the-trimmed-mean)
-  - [Compressing the TDigest](#compressing-the-tdigest)
-  - [Merging TDigest objects](#merging-tdigest-objects)
+  - [Compressing a TDigest](#compressing-a-tdigest)
   - [Updating a TDigest](#updating-a-tdigest)
-  - [Exporting a TDigest to a dict](#exporting-a-tdigest-to-a-dict)
-  - [Restoring a TDigest from a dict](#restoring-a-tdigest-from-a-dict)
+  - [Merging TDigest objects](#merging-tdigest-objects)
+    - [Merging TDigests into a new instance](#merging-tdigests-into-a-new-instance)
+    - [Merging into a TDigest in-place](#merging-into-a-tdigest-in-place)
+    - [Merging a list of TDigests](#merging-a-list-of-tdigests)
+  - [Dict conversion](#dict-conversion)
+    - [Exporting a TDigest to a dict](#exporting-a-tdigest-to-a-dict)
+    - [Restoring a TDigest from a dict](#restoring-a-tdigest-from-a-dict)
+  - [Migration](#migration)
 - [Benchmarks](#benchmarks)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
 ## Features
 
-- **Quantile & rank estimation**: Compute highly accurate quantile and rank estimates.
+- **Quantile & CDF estimation**: Compute highly accurate quantile and rank (CDF) estimates.
 - **Trimmed mean**: Calculate the truncated mean in close approximation.
 - **Merging digests**: Merge many t-digests into one, enabling parallel computing and Big Data workflows such as MapReduce.
 - **Updating**: Update a t-digest incrementally with streaming data, or batches of a dataset too large to fit in memory otherwise.
@@ -67,40 +74,60 @@ pip install target/wheels/fastdigest-0.5.1-<platform-tag>.whl
 
 ## Usage
 
-### Creating a TDigest from values
+### Initialization
 
-Initialize a TDigest directly from any non-empty sequence of numbers:
+#### Initializing a new TDigest
+
+Create an empty new TDigest instance:
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest()
+```
+
+Specify the `max_centroids` parameter to enable automatic compression:
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest(max_centroids=1000)
+```
+
+#### Creating a TDigest from data
+
+To initialize a TDigest directly from any sequence of numbers, use `TDigest.from_values`:
 
 ```python
 import numpy as np
 from fastdigest import TDigest
 
-digest = TDigest([1.42, 2.71, 3.14])        # from list
-digest = TDigest((42,))                     # from tuple
-digest = TDigest(range(101))                # from range
-digest = TDigest(np.linspace(0, 100, 101))  # from numpy array
+digest = TDigest.from_values([1.42, 2.71, 3.14])        # from list
+digest = TDigest.from_values((42,))                     # from tuple
+digest = TDigest.from_values(range(101))                # from range
+digest = TDigest.from_values(np.linspace(0, 100, 101))  # from numpy array
 ```
 
-Specify the `max_centroids` parameter to enable automatic compression:
+You can also provide the `max_centroids` parameter to `from_values`:
 
 ```python
 import numpy as np
 from fastdigest import TDigest
 
 data = np.random.random(10_000)
-digest = TDigest(data, max_centroids=1000)
+digest = TDigest.from_values(data, max_centroids=1000)
 
 print(f"Compressed: {len(digest)} centroids")  # 988 centroids
 ```
 
-### Estimating quantiles and ranks
+### Estimating quantile and rank (CDF)
 
 Estimate the value at a given quantile `q` using `quantile(q)` or `percentile(100 * q)`:
 
 ```python
 from fastdigest import TDigest
 
-digest = TDigest(range(1001), max_centroids=3)
+digest = TDigest.from_values(range(1001), max_centroids=3)
 print("         Median:", digest.quantile(0.5))
 print("99th percentile:", digest.quantile(0.99))
 
@@ -109,14 +136,14 @@ print("         Median:", digest.percentile(50))
 print("99th percentile:", digest.percentile(99))
 ```
 
-Or do the reverse - find the cumulative probability (`rank`) of a given value:
+Or do the reverse - find the `cdf` value (cumulative probability or rank) of a given value:
 
 ```python
 from fastdigest import TDigest
 
-digest = TDigest(range(1001), max_centroids=3)
-print("Rank of 500:", digest.rank(500))
-print("Rank of 990:", digest.rank(990))
+digest = TDigest.from_values(range(1001), max_centroids=3)
+print("Rank of 500:", digest.cdf(500))
+print("Rank of 990:", digest.cdf(990))
 ```
 
 ### Estimating the trimmed mean
@@ -128,15 +155,15 @@ from fastdigest import TDigest
 
 values = list(range(10))
 values.append(1000)  # outlier that we want to ignore
-digest = TDigest(values)
+digest = TDigest.from_values(values)
 result = digest.trimmed_mean(0.1, 0.9)
 
 print(f"Trimmed mean: {result}")  # result: 5.0
 ```
 
-### Compressing the TDigest
+### Compressing a TDigest
 
-If you don't specify the `max_centroids` parameter at initialization, the TDigest object will be **uncompressed**; meaning it has one centroid per data point. You can manually call the `compress` method to shrink the object in-place, reducing memory usage while mostly maintaining accuracy:
+If you don't specify the `max_centroids` parameter in a TDigest instance, it will be **uncompressed**; meaning it has one centroid per data point. You can manually call the `compress` method to shrink the object in-place, reducing memory usage while mostly maintaining accuracy:
 
 ```python
 import numpy as np
@@ -145,7 +172,7 @@ from fastdigest import TDigest
 # generate a large dataset from a skewed distribution
 data = np.random.gumbel(0, 0.1, 10_000)
 
-digest = TDigest(data)
+digest = TDigest.from_values(data)
 p99 = digest.quantile(0.99)  # estimate the 99th percentile
 print(f"{len(digest):5} centroids: {p99=:.3f}")
 
@@ -158,6 +185,30 @@ p99 = digest.quantile(0.99)
 print(f"{len(digest):5} centroids: {p99=:.3f}")
 ```
 
+### Updating a TDigest
+
+To update an existing TDigest in-place with a sequence of values, use `batch_update`:
+
+```python
+import numpy as np
+from fastdigest import TDigest
+
+digest = TDigest.from_values([1, 2, 3])
+digest.batch_update([4, 5, 6])
+digest.batch_update(np.arange(7, 10))  # using numpy array
+```
+
+To update with a single value, use `update`:
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest.from_values([1, 2, 3])
+digest.update(4)
+```
+
+**Note:** If you have more than one value to add, it is always preferable to use `batch_update` rather than looping over `update`.
+
 ### Merging TDigest objects
 
 #### Merging TDigests into a new instance
@@ -167,9 +218,12 @@ Use the `+` operator to merge two digests, creating a new TDigest instance:
 ```python
 from fastdigest import TDigest
 
-digest1 = TDigest(range(50))
-digest2 = TDigest(range(50, 101))
-merged_digest = digest1 + digest2  # alias for digest1.merge(digest2)
+digest1 = TDigest.from_values(range(50))
+digest2 = TDigest.from_values(range(50, 101))
+digest3 = TDigest.from_values(range(101, 201))
+merged_digest = digest1 + digest2 + digest3
+# alias for:
+# merged_digest = digest1.merge(digest2).merge(digest3)
 ```
 
 **Note:** If `max_centroids` is specified in both instances and the combined `n_centroids` is greater than `max_centroids`, compression will be performed immediately.
@@ -183,29 +237,15 @@ You can also merge in-place using the `+=` operator:
 ```python
 from fastdigest import TDigest
 
-digest = TDigest(range(50))
-temp_digest = TDigest(range(50, 101))
-digest += temp_digest  # alias for digest.merge_inplace(temp_digest)
+digest = TDigest.from_values(range(50))
+tmp_digest = TDigest.from_values(range(50, 101))
+digest += tmp_digest  # alias for: digest.merge_inplace(tmp_digest)
 
 # verify that the result is the same as a new instance from the same data
-digest == TDigest(range(101))  # True
+digest == TDigest.from_values(range(101))  # True
 ```
 
-**Note:** When using `merge_inplace` or `+=`, the calling TDigest's `max_centroids` parameter always remains unchanged.
-
-This means you can effectively chain-merge many uncompressed digests and perform a single compression step at the end by combining `+=` and `+`:
-
-```python
-from fastdigest import TDigest
-
-digest = TDigest(range(101), max_centroids=3)
-tmp_digest1 = TDigest(range(101, 201))
-tmp_digest2 = TDigest(range(201, 301))
-tmp_digest3 = TDigest(range(301, 401))
-digest += tmp_digest1 + tmp_digest2 + tmp_digest3
-
-print(f"Result: {len(digest)} centroids")  # 3 centroids
-```
+**Note:** When using `merge_inplace` or `+=`, the calling TDigest's `max_centroids` parameter remains unchanged.
 
 #### Merging a list of TDigests
 
@@ -215,38 +255,18 @@ The `merge_all` function offers an easy way to merge a sequence of many TDigests
 from fastdigest import TDigest, merge_all
 
 # create a list of 10 digests from (non-overlapping) ranges
-digests = [TDigest(range(i, i+10)) for i in range(0, 100, 10)]
+digests = [TDigest.from_values(range(i, i+10)) for i in range(0, 100, 10)]
 
 # merge all digests and create a new instance compressed to 3 centroids
 merged = merge_all(digests, max_centroids=3)
 
 # verify that the result is the same as a new instance from the same data
-merged == TDigest(range(100), max_centroids=3)  # True
+merged == TDigest.from_values(range(100), max_centroids=3)  # True
 ```
 
-### Updating a TDigest
+### Dict conversion
 
-To update an existing TDigest in-place with a new sequence/array of values, use `batch_update`:
-
-```python
-from fastdigest import TDigest
-
-digest = TDigest([1, 2, 3])
-digest.batch_update([4, 5, 6])
-```
-
-To update with a single value, use `update`:
-
-```python
-from fastdigest import TDigest
-
-digest = TDigest([1, 2, 3])
-digest.update(4)
-```
-
-**Note:** If you have more than one value to add, it is always preferable to use `batch_update` rather than looping over `update`.
-
-### Exporting a TDigest to a dict
+#### Exporting a TDigest to a dict
 
 Obtain a dictionary representation of the digest by calling `to_dict`:
 
@@ -254,12 +274,12 @@ Obtain a dictionary representation of the digest by calling `to_dict`:
 from fastdigest import TDigest
 import json
 
-digest = TDigest(range(101), max_centroids=3)
+digest = TDigest.from_values(range(101), max_centroids=3)
 tdigest_dict = digest.to_dict()
 print(json.dumps(tdigest_dict, indent=2))
 ```
 
-### Restoring a TDigest from a dict
+#### Restoring a TDigest from a dict
 
 Use `TDigest.from_dict(d)` to create a new TDigest instance. The dict has to contain a list of `centroids`, with each centroid itself being a dict with keys `m` (mean) and `c` (weight or count). The `max_centroids` key is optional.
 
@@ -277,7 +297,21 @@ data = {
 digest = TDigest.from_dict(data)
 ```
 
-**Note:** dicts created by the *tdigest* Python library can also natively be used by *fastDigest*. For functional continuity, set `max_centroids` to 1000 after importing:
+### Migration
+
+The *fastDigest* API is designed to be mostly compatible with the *tdigest* Python library. Migrating is as simple as changing ...
+
+```python
+from tdigest import TDigest
+```
+
+... to:
+
+```python
+from fastdigest import TDigest
+```
+
+Dicts created by *tdigest* can also natively be used by *fastDigest*. For functional continuity, set `max_centroids` to 1000 after importing:
 
 ```python
 from fastdigest import TDigest
