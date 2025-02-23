@@ -108,9 +108,6 @@ impl PyTDigest {
     /// Updates the digest (in-place) with a single float value.
     pub fn update(&mut self, value: f64) {
         self.batch_update(vec![value]);
-        if let Some(max) = self.max_centroids {
-            self.digest.compress(max);
-        }
     }
 
     /// Estimates the quantile for a given cumulative probability `q`.
