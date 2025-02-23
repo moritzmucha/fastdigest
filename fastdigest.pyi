@@ -150,11 +150,12 @@ class TDigest:
         """
         ...
 
-    def rank(self, x: float) -> float:
+    def cdf(self, x: float) -> float:
         """
-        Estimate the cumulative probability (rank) of a given value x.
+        Estimate the cumulative distribution function / cumulative probability
+        / rank of a given value x.
 
-        :param x: Value for which to compute the rank.
+        :param x: Value for which to compute the cdf.
         :return: Float between 0 and 1 representing cumulative probability.
         """
         ...

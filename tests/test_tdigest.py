@@ -211,10 +211,10 @@ def test_percentile():
         f"Expected ~{expected}, got {quantile_est}"
     )
 
-def test_rank():
+def test_cdf():
     digest = TDigest.from_values(range(1, 101))
     x = 50
-    rank_est = digest.rank(x)
+    rank_est = digest.cdf(x)
     # For uniform data, expected rank is (x - min)/(max - min)
     expected = (50 - 1) / (100 - 1)
     assert 0 <= rank_est <= 1, "Rank should be between 0 and 1"
@@ -389,7 +389,7 @@ if __name__ == "__main__":
     test_update()
     test_quantile()
     test_percentile()
-    test_rank()
+    test_cdf()
     test_trimmed_mean()
     test_to_from_dict()
     test_copy()

@@ -211,7 +211,7 @@ impl PyTDigest {
     }
 
     /// Estimates the rank (cumulative probability) of a given value `x`.
-    pub fn rank(&self, x: f64) -> PyResult<f64> {
+    pub fn cdf(&self, x: f64) -> PyResult<f64> {
         if let Some(d) = &self.digest {
             Ok(d.estimate_rank(x))
         } else {
