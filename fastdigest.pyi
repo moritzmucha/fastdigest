@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Sequence, Tuple, Optional, Union, Any
 class TDigest:
     def __init__(
             self,
-            max_centroids: Optional[int] = None
+            max_centroids: Optional[int] = 1000
         ) -> None:
         """
         Initialize an empty TDigest instance.
@@ -11,14 +11,14 @@ class TDigest:
         :param optional max_centroids:
             Maximum number of centroids to maintain. When provided, compression
             is automatically performed during merging and updating operations
-            to keep the digest small and efficient. Default is None.
+            to keep the digest small and efficient. Default is 1000.
         """
         ...
 
     @staticmethod
     def from_values(
             values: Sequence[Union[float, int]],
-            max_centroids: Optional[int] = None
+            max_centroids: Optional[int] = 1000
         ) -> "TDigest":
         """
         Initialize a TDigest with a sequence of numerical values.
@@ -27,7 +27,7 @@ class TDigest:
         :param optional max_centroids:
             Maximum number of centroids to maintain. When provided, compression
             is automatically performed during merging and updating operations
-            to keep the digest small and efficient. Default is None.
+            to keep the digest small and efficient. Default is 1000.
         """
         ...
 

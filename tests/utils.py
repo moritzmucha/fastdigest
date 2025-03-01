@@ -5,6 +5,7 @@ from fastdigest import TDigest
 
 RTOL = 0.0
 ATOL = 1e-12
+DEFAULT_MAX_CENTROIDS = 1000
 
 
 def check_median(digest: TDigest, expected: float) -> None:

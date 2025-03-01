@@ -4,6 +4,8 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 use std::cmp::Ordering;
 use tdigests::{Centroid, TDigest};
 
+const DEFAULT_MAX_CENTROIDS: usize = 1000;
+
 #[pyclass(name = "TDigest", module = "fastdigest")]
 #[derive(Clone)]
 pub struct PyTDigest {
@@ -15,7 +17,7 @@ pub struct PyTDigest {
 impl PyTDigest {
     /// Constructs a new empty TDigest instance.
     #[new]
-    #[pyo3(signature = (max_centroids=None))]
+    #[pyo3(signature = (max_centroids=DEFAULT_MAX_CENTROIDS))]
     pub fn new(max_centroids: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             digest: None,
@@ -25,7 +27,7 @@ impl PyTDigest {
 
     /// Constructs a new TDigest from a sequence of float values.
     #[staticmethod]
-    #[pyo3(signature = (values, max_centroids=None))]
+    #[pyo3(signature = (values, max_centroids=DEFAULT_MAX_CENTROIDS))]
     pub fn from_values(
         values: Vec<f64>,
         max_centroids: Option<usize>,
@@ -280,10 +282,7 @@ impl PyTDigest {
     pub fn to_dict(&self, py: Python) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
 
-        // Create "max_centroids" key only if set
-        if let Some(max) = self.max_centroids {
-            dict.set_item("max_centroids", max)?;
-        }
+        dict.set_item("max_centroids", self.max_centroids)?;
 
         let centroid_list = PyList::empty(py);
         if let Some(d) = &self.digest {
@@ -335,11 +334,14 @@ impl PyTDigest {
             None
         };
 
-        // Extract max_centroids as an Option<usize>.
-        let max_centroids: Option<usize> = tdigest_dict
-            .get_item("max_centroids")?
-            .map(|obj| obj.extract())
-            .transpose()?;
+        // Check if the "max_centroids" key exists
+        let max_centroids: Option<usize> =
+            match tdigest_dict.get_item("max_centroids")? {
+                Some(obj) if obj.is_none() => None,
+                Some(obj) => Some(obj.extract()?),
+                // If missing, set the default value.
+                None => Some(DEFAULT_MAX_CENTROIDS),
+            };
 
         Ok(Self {
             digest,

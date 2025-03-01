@@ -7,6 +7,7 @@ from fastdigest import TDigest
 from utils import (
     RTOL,
     ATOL,
+    DEFAULT_MAX_CENTROIDS,
     check_median,
     check_tdigest_equality,
 )
@@ -28,7 +29,7 @@ def sample_values() -> List[int]:
 # -------------------------------------------------------------------
 def test_init() -> None:
     d = TDigest()
-    assert d.max_centroids is None
+    assert d.max_centroids == DEFAULT_MAX_CENTROIDS
     assert d.n_values == 0
     assert d.n_centroids == 0
     d = TDigest(max_centroids=3)
@@ -43,7 +44,7 @@ def test_init() -> None:
 ])
 def test_from_values(values: Sequence[int]) -> None:
     d = TDigest.from_values(values)
-    assert d.max_centroids is None
+    assert d.max_centroids == DEFAULT_MAX_CENTROIDS
     assert d.n_values == len(values)
     assert d.n_centroids == len(values)
 
@@ -59,10 +60,10 @@ def test_max_centroids(
         sample_values: Sequence[int], empty_digest: TDigest
     ) -> None:
     d = TDigest.from_values(sample_values)
-    assert d.max_centroids is None
+    assert d.max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest.from_values(sample_values, max_centroids=3)
     assert isinstance(d.max_centroids, int) and d.max_centroids == 3
-    assert empty_digest.max_centroids is None
+    assert empty_digest.max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest(3)
     assert d.max_centroids == 3
     d.max_centroids = None
@@ -293,7 +294,7 @@ def test_len_repr() -> None:
         f"Expected {d.n_centroids}, got {length}"
     )
     rep = repr(d)
-    assert rep == f"TDigest(max_centroids=None)", (
+    assert rep == f"TDigest(max_centroids={DEFAULT_MAX_CENTROIDS})", (
         f"__repr__ output unexpected: {rep}"
     )
     d = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=100)
