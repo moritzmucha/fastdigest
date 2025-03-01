@@ -3,39 +3,14 @@ import math
 import pickle
 from copy import copy, deepcopy
 from typing import Callable, Optional, Sequence, Union, List
-from fastdigest import TDigest, merge_all
+from fastdigest import TDigest
+from utils import (
+    RTOL,
+    ATOL,
+    check_median,
+    check_tdigest_equality,
+)
 
-# -------------------------------------------------------------------
-# Helper functions
-# -------------------------------------------------------------------
-def check_median(digest: TDigest, expected: float) -> None:
-    quantile_est = digest.quantile(0.5)
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
-        f"Expected median ~{expected}, got {quantile_est}"
-    )
-
-def check_tdigest_equality(
-        orig: TDigest, new: TDigest, rel_tol: float = 1e-9
-    ) -> None:
-    assert isinstance(new, TDigest), (
-        f"Expected TDigest, got {type(new).__name__}"
-    )
-    assert new.max_centroids == orig.max_centroids, (
-        f"Expected max_centroids={orig.max_centroids}, "
-        f"got {new.max_centroids}"
-    )
-    assert new.n_values == orig.n_values, (
-        f"Expected {orig.n_values} values, got {new.n_values}"
-    )
-    assert new.n_centroids == orig.n_centroids, (
-        f"Expected {orig.n_centroids} centroids, got {new.n_centroids}"
-    )
-    for q in [0.25, 0.5, 0.75]:
-        orig_val = orig.quantile(q)
-        new_val = new.quantile(q)
-        assert math.isclose(orig_val, new_val, rel_tol=rel_tol), (
-            f"Quantile {q} mismatch: orig {orig_val} vs new {new_val}"
-        )
 
 # -------------------------------------------------------------------
 # Fixtures
@@ -222,14 +197,16 @@ def test_quantile_percentile_cdf(empty_digest: TDigest) -> None:
     with pytest.raises(ValueError):
         empty_digest.quantile(0.5)
     p = d.percentile(50)
-    assert math.isclose(p, 100, rel_tol=1e-3)
+    assert math.isclose(p, 100, rel_tol=RTOL, abs_tol=ATOL)
     with pytest.raises(ValueError):
         empty_digest.percentile(50)
     d2 = TDigest.from_values(range(1, 101))
     rank_est = d2.cdf(50)
     expected_rank = (50 - 1) / (100 - 1)
     assert 0 <= rank_est <= 1
-    assert math.isclose(rank_est, expected_rank, rel_tol=1e-3)
+    assert math.isclose(
+        rank_est, expected_rank, rel_tol=RTOL, abs_tol=ATOL
+    )
     with pytest.raises(ValueError):
         empty_digest.cdf(50)
 
@@ -241,7 +218,7 @@ def test_trimmed_mean(empty_digest: TDigest) -> None:
     values.append(10_000)
     d = TDigest.from_values(values)
     trimmed = d.trimmed_mean(0.01, 0.99)
-    assert math.isclose(trimmed, 50.5, rel_tol=1e-3)
+    assert math.isclose(trimmed, 50.5, rel_tol=RTOL, abs_tol=ATOL)
     with pytest.raises(ValueError):
         d.trimmed_mean(0.9, 0.1)
     with pytest.raises(ValueError):
@@ -315,8 +292,8 @@ def test_len_repr() -> None:
     assert length == d.n_centroids, (
         f"Expected {d.n_centroids}, got {length}"
     )
-    rep: str = repr(d)
-    assert rep == "TDigest(max_centroids=None)", (
+    rep = repr(d)
+    assert rep == f"TDigest(max_centroids=None)", (
         f"__repr__ output unexpected: {rep}"
     )
     d = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=100)
@@ -324,9 +301,6 @@ def test_len_repr() -> None:
     assert rep == "TDigest(max_centroids=100)", (
         f"__repr__ output unexpected: {rep}"
     )
-    empty = TDigest()
-    rep = repr(empty)
-    assert rep == "TDigest(max_centroids=None)"
 
 def test_equality() -> None:
     d1 = TDigest.from_values([1.0, 2.0, 3.0])
@@ -340,48 +314,3 @@ def test_equality() -> None:
     empty2 = TDigest()
     assert empty1 == empty2
     assert d1 != empty1
-
-# -------------------------------------------------------------------
-# Merge all test
-# -------------------------------------------------------------------
-def test_merge_all() -> None:
-    digests = [
-        TDigest.from_values(range(i, i+10)) for i in range(1, 100, 10)
-    ]
-    # Append an empty digest
-    digests.append(TDigest())
-    merged = merge_all(digests)
-    check_median(merged, 50.5)
-    assert merged.n_values == 100, (
-        f"Expected 100 values, got {merged.n_values}"
-    )
-    max_c = 3
-    merged = merge_all(digests, max_centroids=max_c)
-    check_median(merged, 50.5)
-    assert merged.n_centroids == max_c, (
-        f"Expected {max_c} centroids, got {merged.n_centroids}"
-    )
-    for i, d in enumerate(digests[:-1]):
-        d.max_centroids = 3 + i
-    merged = merge_all(digests)
-    assert merged.n_values == 100, (
-        f"Expected 100 values, got {merged.n_values}"
-    )
-    min_c = 12
-    max_c = 50
-    digests[-1].max_centroids = max_c
-    merged = merge_all(digests)
-    check_median(merged, 50.5)
-    assert min_c <= merged.n_centroids <= max_c, (
-        f"Expected between {min_c} and {max_c} centroids, "
-        f"got {merged.n_centroids}"
-    )
-    empty_digests = [TDigest(max_centroids=i) for i in range(10)]
-    merged_empty = merge_all(empty_digests)
-    assert merged_empty == TDigest(max_centroids=9)
-    merged_empty = merge_all([], max_centroids=3)
-    assert merged_empty == TDigest(max_centroids=3)
-
-
-if __name__ == "__main__":
-    pytest.main()
