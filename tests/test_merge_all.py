@@ -8,7 +8,7 @@ def test_merge_all() -> None:
     ]
     # Append an empty digest
     digests.append(TDigest())
-    merged = merge_all(digests)
+    merged = merge_all(iter(digests))
     check_median(merged, 50.5)
     assert merged.n_values == 100, (
         f"Expected 100 values, got {merged.n_values}"

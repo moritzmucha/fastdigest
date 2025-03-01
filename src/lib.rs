@@ -159,7 +159,7 @@ impl PyTDigest {
                 self.digest = Some(merged);
             }
 
-            // If other.digest is None (or both are None), leave self unmodified.
+            // If other.digest (or both) is None, leave self unmodified.
             _ => {}
         }
     }
@@ -232,7 +232,8 @@ impl PyTDigest {
 
         if let Some(d) = &self.digest {
             let centroids = d.centroids();
-            let total_weight: f64 = centroids.iter().map(|c| c.weight).sum();
+            let total_weight: f64 =
+                centroids.iter().map(|c| c.weight).sum();
             if total_weight == 0.0 {
                 return Err(PyValueError::new_err("Total weight is zero."));
             }
@@ -303,12 +304,14 @@ impl PyTDigest {
     pub fn from_dict<'py>(
         tdigest_dict: &Bound<'py, PyDict>,
     ) -> PyResult<Self> {
-        let centroids_obj =
+        let centroids_obj: Bound<'py, PyAny> =
             tdigest_dict.get_item("centroids")?.ok_or_else(|| {
                 PyKeyError::new_err("Key 'centroids' not found in dictionary.")
             })?;
         let centroids_list: &Bound<'py, PyList> = centroids_obj.downcast()?;
-        let mut centroids = Vec::with_capacity(centroids_list.len());
+        let mut centroids: Vec<Centroid> =
+            Vec::with_capacity(centroids_list.len());
+
         for item in centroids_list.iter() {
             let d: &Bound<'py, PyDict> = item.downcast()?;
             let mean: f64 = d
@@ -446,24 +449,31 @@ fn compare_options(opt1: &Option<usize>, opt2: &Option<usize>) -> Ordering {
 #[pyfunction]
 #[pyo3(signature = (digests, max_centroids=None))]
 pub fn merge_all(
-    py: Python,
-    digests: Vec<Py<PyTDigest>>,
+    digests: &Bound<'_, PyAny>,
     max_centroids: Option<usize>,
 ) -> PyResult<PyTDigest> {
+    // Convert any iterable into a Vec<PyTDigest>
+    let digests: Vec<PyTDigest> = digests
+        .try_iter()?
+        .map(|item| {
+            item.and_then(|x| x.extract::<PyTDigest>())
+        })
+        .collect::<PyResult<_>>()?;
+
     if digests.is_empty() {
         return Ok(PyTDigest {
             digest: None,
-            max_centroids
+            max_centroids,
         });
     }
 
     let final_max = if max_centroids.is_some() {
-        max_centroids // take provided value
+        max_centroids // Take the provided value
     } else {
         // or determine via merge logic
         digests
             .iter()
-            .map(|p| p.borrow(py).max_centroids)
+            .map(|p| p.max_centroids)
             .max_by(compare_options)
             .flatten()
     };
@@ -471,8 +481,7 @@ pub fn merge_all(
     // Find the first non-empty digest.
     let mut combined_digest_opt: Option<TDigest> = None;
     for d in &digests {
-        let d_borrowed = d.borrow(py);
-        if let Some(ref digest) = d_borrowed.digest {
+        if let Some(ref digest) = d.digest {
             combined_digest_opt = Some(digest.clone());
             break;
         }
@@ -481,8 +490,7 @@ pub fn merge_all(
     if let Some(mut combined_digest) = combined_digest_opt {
         // Merge the remaining non-empty digests.
         for d in digests.iter().skip(1) {
-            let d_borrowed = d.borrow(py);
-            if let Some(ref digest) = d_borrowed.digest {
+            if let Some(ref digest) = d.digest {
                 combined_digest = combined_digest.merge(digest);
             }
         }

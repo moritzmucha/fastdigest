@@ -1,4 +1,4 @@
-from typing import Dict, List, Sequence, Tuple, Optional, Union, Any
+from typing import Dict, Iterable, List, Sequence, Tuple, Optional, Union, Any
 
 class TDigest:
     def __init__(
@@ -290,11 +290,11 @@ class TDigest:
         ...
 
 def merge_all(
-        digests: Sequence[TDigest],
+        digests: Iterable[TDigest],
         max_centroids: Optional[int] = None
     ) -> TDigest:
     """
-    Merge a sequence of TDigest instances into a single TDigest.
+    Merge an iterable of TDigest instances into a single TDigest.
 
     If `max_centroids` is provided, this value will be set in the new TDigest.
 
@@ -305,7 +305,7 @@ def merge_all(
     If `max_centroids` is set in the resulting TDigest, compression is
     performed immediately after merging.
 
-    :param digests: Sequence of TDigest instances to merge.
+    :param digests: Iterable of TDigest instances to merge.
     :param optional max_centroids:
         Maximum number of centroids to maintain.
         If None, the value is determined from the source TDigests.
