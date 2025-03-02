@@ -76,6 +76,8 @@ class TDigest:
         """
         Merge this TDigest with another, returning a new TDigest.
 
+        Equivalent to the `+` operator.
+
         The resulting TDigest will use the higher of the two instances'
         `max_centroids` parameters; if at least one of them is None
         (no automatic compression), it will be None.
@@ -92,6 +94,8 @@ class TDigest:
         """
         Merge another TDigest into `self`, modifying the calling object
         in-place.
+        
+        Equivalent to the `+=` operator.
 
         If `max_centroids` is set in the calling TDigest, compression is
         performed immediately after merging.
@@ -134,6 +138,8 @@ class TDigest:
         """
         Estimate the value at a given cumulative probability (quantile).
 
+        Inverse function of `cdf(x)`.
+
         :param q: Float between 0 and 1 representing cumulative probability.
         :return: Estimated quantile value.
         """
@@ -143,20 +149,83 @@ class TDigest:
         """
         Estimate the value at a given cumulative probability (percentile).
 
-        Convenience method, same as `quantile(p/100)`.
+        Equivalent to `quantile(p/100)`.
 
         :param p: Number between 0 and 100 (cumulative probability in percent).
         :return: Estimated percentile value.
         """
         ...
 
+    def median(self) -> float:
+        """
+        Estimate the median value.
+
+        Equivalent to `quantile(0.5)`.
+
+        :return: Estimated median.
+        """
+        ...
+
+    def iqr(self, q1: float, q2: float) -> float:
+        """
+        Estimate the interquartile range (IQR).
+
+        Equivalent to `quantile(0.75) - quantile(0.25)`.
+
+        :return: Estimated IQR.
+        """
+        ...
+
+    def min(self) -> float:
+        """
+        Return the minimum of all ingested values.
+
+        This is an exact value, not an estimate.
+
+        :return: Minimum value.
+        """
+        ...
+
+    def max(self) -> float:
+        """
+        Return the maximum of all ingested values.
+
+        This is an exact value, not an estimate.
+
+        :return: Maximum value.
+        """
+        ...
+
     def cdf(self, x: float) -> float:
         """
-        Estimate the cumulative distribution function / cumulative probability
-        / rank of a given value x.
+        Estimate the cumulative distribution function (CDF) at the value `x`,
+        aka the cumulative probability or relative rank.
+
+        Inverse function of `quantile(q)`.
 
         :param x: Value for which to compute the cdf.
         :return: Float between 0 and 1 representing cumulative probability.
+        """
+        ...
+
+    def probability(self, x1: float, x2: float) -> float:
+        """
+        Estimate the probability of finding a value in the interval
+        [`x1`, `x2`].
+
+        Equivalent to `cdf(x2) - cdf(x1)`.
+
+        :return: Float between 0 and 1 representing probability.
+        """
+        ...
+
+    def mean(self) -> float:
+        """
+        Calculate the arithmetic mean of all ingested values.
+
+        This is an exact value, not an estimate.
+
+        :return: Arithmetic mean.
         """
         ...
 

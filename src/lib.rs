@@ -275,6 +275,74 @@ impl PyTDigest {
         }
     }
 
+    /// Estimates the empirical probability of a value being in
+    /// the interval \[`x1`, `x2`\].
+    pub fn probability(&self, x1: f64, x2: f64) -> PyResult<f64> {
+        if x1 > x2 {
+            return Err(PyValueError::new_err(
+                "x1 must be less than or equal to x2.",
+            ));
+        }
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_rank(x2) - d.estimate_rank(x1))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
+    }
+
+    /// Returns the mean of the data.
+    pub fn mean(&self) -> PyResult<f64> {
+        if let Some(d) = &self.digest {
+            let centroids = d.centroids();
+            let total_weight: f64 =
+                centroids.iter().map(|c| c.weight).sum();
+            if total_weight == 0.0 {
+                return Err(PyValueError::new_err("Total weight is zero."));
+            }
+            let weighted_sum: f64 =
+                centroids.iter().map(|c| c.mean * c.weight).sum();
+            Ok(weighted_sum / total_weight)
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
+    }
+
+    /// Returns the lowest ingested value.
+    pub fn min(&self) -> PyResult<f64> {
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_quantile(0.0))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
+    }
+
+    /// Returns the highest ingested value.
+    pub fn max(&self) -> PyResult<f64> {
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_quantile(1.0))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
+    }
+
+    /// Estimates the median.
+    pub fn median(&self) -> PyResult<f64> {
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_quantile(0.5))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
+    }
+
+    /// Estimates the inter-quartile range.
+    pub fn iqr(&self) -> PyResult<f64> {
+        if let Some(d) = &self.digest {
+            Ok(d.estimate_quantile(0.75) - d.estimate_quantile(0.25))
+        } else {
+            Err(PyValueError::new_err("TDigest is empty."))
+        }
+    }
+
     /// Returns a dictionary representation of the digest.
     ///
     /// The dict contains a key "centroids" mapping to a list of dicts,
