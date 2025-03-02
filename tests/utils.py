@@ -3,6 +3,7 @@ import math
 from fastdigest import TDigest
 
 
+EPS = sys.float_info.epsilon
 RTOL = 0.0
 ATOL = 1e-12
 DEFAULT_MAX_CENTROIDS = 1000
@@ -10,7 +11,7 @@ DEFAULT_MAX_CENTROIDS = 1000
 
 def check_median(digest: TDigest, expected: float) -> None:
     quantile_est = digest.quantile(0.5)
-    assert math.isclose(quantile_est, expected, rel_tol=1e-3), (
+    assert math.isclose(quantile_est, expected, rel_tol=RTOL, abs_tol=ATOL), (
         f"Expected median ~{expected}, got {quantile_est}"
     )
 

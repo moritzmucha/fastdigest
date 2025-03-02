@@ -1,10 +1,12 @@
 import pytest
 import math
+import random
 import pickle
 from copy import copy, deepcopy
 from typing import Callable, Optional, Sequence, Union, List
 from fastdigest import TDigest
 from utils import (
+    EPS,
     RTOL,
     ATOL,
     DEFAULT_MAX_CENTROIDS,
@@ -40,7 +42,7 @@ def test_init() -> None:
 @pytest.mark.parametrize("values", [
     [1, 2, 3, 4, 5],
     range(1, 6),
-    (1, 2, 3, 4, 5),
+    (5, 3, 4, 2, 1),
 ])
 def test_from_values(values: Sequence[int]) -> None:
     d = TDigest.from_values(values)
@@ -190,19 +192,30 @@ def test_updates(
         assert d.n_centroids <= max_centroids
 
 # -------------------------------------------------------------------
-# Quantile, percentile, and CDF tests
+# Quantile tests (quantile, percentile, median, iqr, min, max)
 # -------------------------------------------------------------------
-def test_quantile_percentile_cdf(empty_digest: TDigest) -> None:
-    d = TDigest.from_values(range(2, 199))
-    check_median(d, 100.0)
+def test_quantile_median_min_max(empty_digest: TDigest) -> None:
+    data = list(range(2, 199))
+    random.shuffle(data)
+    d = TDigest.from_values(data)
+    median_est = 100.0
+    check_median(d, median_est)
     with pytest.raises(ValueError):
         empty_digest.quantile(0.5)
     p = d.percentile(50)
-    assert math.isclose(p, 100, rel_tol=RTOL, abs_tol=ATOL)
-    with pytest.raises(ValueError):
-        empty_digest.percentile(50)
-    d2 = TDigest.from_values(range(1, 101))
-    rank_est = d2.cdf(50)
+    assert math.isclose(p, median_est, rel_tol=RTOL, abs_tol=ATOL)
+    m = d.median()
+    assert math.isclose(m, median_est, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(d.iqr(), 98.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(d.min(), 2.0, rel_tol=RTOL, abs_tol=EPS)
+    assert math.isclose(d.max(), 198.0, rel_tol=RTOL, abs_tol=EPS)
+
+# -------------------------------------------------------------------
+# CDF tests (cdf, probability)
+# -------------------------------------------------------------------
+def test_cdf_methods(empty_digest: TDigest) -> None:
+    d = TDigest.from_values(range(1, 101))
+    rank_est = d.cdf(50)
     expected_rank = (50 - 1) / (100 - 1)
     assert 0 <= rank_est <= 1
     assert math.isclose(
@@ -210,13 +223,20 @@ def test_quantile_percentile_cdf(empty_digest: TDigest) -> None:
     )
     with pytest.raises(ValueError):
         empty_digest.cdf(50)
+    p_est = d.probability(80, 100)
+    expected_p = ((100 - 1) - (80 - 1)) / (100 - 1)
+    assert math.isclose(
+        p_est, expected_p, rel_tol=RTOL, abs_tol=ATOL
+    )
 
 # -------------------------------------------------------------------
-# Trimmed mean test
+# Mean tests (mean, trimmed_mean)
 # -------------------------------------------------------------------
-def test_trimmed_mean(empty_digest: TDigest) -> None:
-    values = list(range(101))
-    values.append(10_000)
+def test_mean_trimmed_mean(empty_digest: TDigest) -> None:
+    values = list(range(1, 101))
+    d = TDigest.from_values(values)
+    assert math.isclose(d.mean(), 50.5, rel_tol=RTOL, abs_tol=EPS)
+    values[-1] = 10_000
     d = TDigest.from_values(values)
     trimmed = d.trimmed_mean(0.01, 0.99)
     assert math.isclose(trimmed, 50.5, rel_tol=RTOL, abs_tol=ATOL)
@@ -305,7 +325,7 @@ def test_len_repr() -> None:
 
 def test_equality() -> None:
     d1 = TDigest.from_values([1.0, 2.0, 3.0])
-    d2 = TDigest.from_values([1.0, 2.0, 3.0])
+    d2 = TDigest.from_values([2.0, 1.0, 3.0])
     d3 = TDigest.from_values([1.0, 2.0, 3.1])
     d4 = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=3)
     assert d1 == d2
