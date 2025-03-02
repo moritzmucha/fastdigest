@@ -37,7 +37,8 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent"
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering"
 ]
 
 [project.urls]
@@ -49,6 +50,7 @@ include = [
   "benchmark.py",
   "LICENSE",
   "THIRD-PARTY-NOTICES",
-  "README.md"
+  "README.md",
+  "API_Reference.ipynb"
 ]
 bindings = "pyo3"
