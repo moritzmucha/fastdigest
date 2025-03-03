@@ -1,6 +1,6 @@
 # fastDigest
 
-[![PyPI](https://img.shields.io/pypi/v/fastdigest.svg)](https://pypi.org/project/fastdigest)
+[![PyPI](https://img.shields.io/pypi/v/fastdigest.svg)](https://pypi.org/project/fastdigest/)
 [![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Build](https://github.com/moritzmucha/fastdigest/actions/workflows/build.yml/badge.svg)](https://github.com/moritzmucha/fastdigest/actions)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -161,7 +161,7 @@ Constructing a TDigest and estimating the median of 1,000,000 uniformly distribu
 | Library            | Time (ms) | Speedup         |
 |--------------------|-----------|-----------------|
 | tdigest            | ~12,800   | -               |
-| fastdigest         | ~51       | **250x** faster |
+| fastdigest         | ~32       | **400x** faster |
 
 *Environment*: Python 3.13.2, Fedora 41 (Workstation), AMD Ryzen 5 7600X
 
@@ -177,4 +177,4 @@ python benchmark.py
 
 ## Acknowledgements
 
-Credit goes to Ted Dunning for inventing the [t-digest](https://github.com/tdunning/t-digest). Special thanks to Andy Lok for creating the efficient [*tdigests* Rust library](https://github.com/andylokandy/tdigests), as well as all [*PyO3* contributors](https://github.com/pyo3).
+Credit goes to Ted Dunning for inventing the [t-digest](https://github.com/tdunning/t-digest). Special thanks to Andy Lok and Paul Meng for creating the [*tdigests*](https://github.com/andylokandy/tdigests) and [*tdigest*](https://github.com/MnO2/t-digest/) Rust libraries, respectively, as well as to all [*PyO3* contributors](https://github.com/pyo3).
