@@ -3,11 +3,13 @@ import random
 import argparse
 from fastdigest import TDigest
 from statistics import mean, stdev
-from typing import Callable, Sequence, Tuple
+from typing import Callable, Sequence, Tuple, Type, TypeVar
 
 N = 1_000_000  # default size of dataset
 Q = 0.5        # default quantile to estimate
 R = 1          # default number of benchmark runs
+
+INCREMENTAL = False  # global switch to use update() instead of batch_update()
 
 try:
     from tdigest import TDigest as LegacyTDigest
@@ -18,30 +20,25 @@ except ImportError:
         "Install it to run the full benchmark.\n"
     )
 
-def benchmark_fastdigest(
-        dataset: Sequence[float],
-        q: float,
-        max_centroids: int = 1000
-    ) -> Tuple[float, float]:
-    start = time.perf_counter()
-    digest = TDigest.from_values(dataset, max_centroids=max_centroids)
-    result = digest.quantile(q)
-    elapsed_ms = 1000 * (time.perf_counter() - start)
-    return result, elapsed_ms
-
-def benchmark_tdigest(
+T = TypeVar("T")
+def compute(
+        cls: Type[T],
         dataset: Sequence[float],
         q: float
     ) -> Tuple[float, float]:
     start = time.perf_counter()
-    digest = LegacyTDigest()
-    digest.batch_update(dataset)
+    digest = cls()
+    if INCREMENTAL:
+        for x in dataset:
+            digest.update(x)
+    else:
+        digest.batch_update(dataset)
     result = digest.percentile(100. * q)
     elapsed_ms = 1000 * (time.perf_counter() - start)
     return result, elapsed_ms
 
 def run_benchmark(
-        benchmark: Callable[[Sequence[float], float], Tuple[float, float]],
+        cls: Type[T],
         name: str,
         n: int = N,
         q: float = Q,
@@ -60,7 +57,7 @@ def run_benchmark(
                 end="",
                 flush=True
             )
-        result, elapsed_ms = benchmark(data, q)
+        result, elapsed_ms = compute(cls, data, q)
         times.append(elapsed_ms)
     t_mean = mean(times)
     if r > 1:
@@ -104,9 +101,9 @@ if __name__ == '__main__':
     r = args.repeat
 
     if LegacyTDigest is not None:
-        t_legacy = run_benchmark(benchmark_tdigest, "Legacy tdigest", n, q, r)
+        t_legacy = run_benchmark(LegacyTDigest, "Legacy tdigest", n, q, r)
 
-    t_fast = run_benchmark(benchmark_fastdigest, "fastDigest", n, q, r)
+    t_fast = run_benchmark(TDigest, "fastDigest", n, q, r)
 
     if LegacyTDigest is not None:
         print(f"{'Speedup':>14}: {t_legacy / t_fast:.0f}x")
