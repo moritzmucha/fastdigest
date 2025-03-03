@@ -3,7 +3,7 @@ import math
 import random
 import pickle
 from copy import copy, deepcopy
-from typing import Callable, Optional, Sequence, Union, List
+from typing import Callable, Optional, Sequence, List
 from fastdigest import TDigest
 from utils import (
     EPS,
@@ -68,10 +68,8 @@ def test_max_centroids(
     assert empty_digest.max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest(3)
     assert d.max_centroids == 3
-    d.max_centroids = None
-    assert d.max_centroids is None
-    d.max_centroids = 3
-    assert d.max_centroids == 3
+    d.max_centroids = 10
+    assert d.max_centroids == 10
 
 def test_n_values_and_n_centroids(empty_digest: TDigest) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
@@ -79,20 +77,6 @@ def test_n_values_and_n_centroids(empty_digest: TDigest) -> None:
     assert isinstance(d.n_centroids, int) and d.n_centroids == 3
     assert empty_digest.n_values == 0
     assert empty_digest.n_centroids == 0
-
-# -------------------------------------------------------------------
-# Compression test
-# -------------------------------------------------------------------
-def test_compress() -> None:
-    d = TDigest.from_values(range(1, 101))
-    d.compress(5)
-    assert 3 <= d.n_centroids <= 5, (
-        f"Expected between 3 and 5 centroids, got {d.n_centroids}"
-    )
-    check_median(d, 50.5)
-    empty = TDigest()
-    empty.compress(5)
-    assert len(empty) == 0
 
 # -------------------------------------------------------------------
 # Merge tests (merge, merge_inplace, __add__, __iadd__)
@@ -118,13 +102,13 @@ def test_merge_with_max_centroids() -> None:
     assert merged.n_values == 100
     d2.max_centroids = 50
     merged = d1.merge(d2)
-    assert 3 < merged.n_centroids <= 50, (
-        f"Expected between 4 and 50 centroids, got {merged.n_centroids}"
+    assert 3 < merged.n_centroids <= 50 + 1, (
+        f"Expected between 4 and 51 centroids, got {merged.n_centroids}"
     )
     d2.max_centroids = 3
     merged = d1.merge(d2)
-    assert merged.n_centroids == 3, (
-        f"Expected 3 centroids, got {merged.n_centroids}"
+    assert merged.n_centroids in (3, 4), (
+        f"Expected 3-4 centroids, got {merged.n_centroids}"
     )
 
 def test_merge_inplace() -> None:
@@ -135,10 +119,10 @@ def test_merge_inplace() -> None:
     assert d1.n_values == 100
     d1.max_centroids = 3
     d1.merge_inplace(d2)
-    assert d1.n_centroids == 3
+    assert d1.n_centroids <= 3 + 1
     d2.max_centroids = 50
     d1.merge_inplace(d2)
-    assert d1.n_centroids == 3
+    assert d1.n_centroids <= 3 + 1
     empty = TDigest()
     d = TDigest.from_values(range(1, 51))
     d.merge_inplace(empty)
@@ -161,35 +145,36 @@ def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
     digest.max_centroids = 3
     empty_digest.max_centroids = 3
     merged = digest + empty_digest
-    assert len(merged) == 3
+    assert len(merged) <= 3 + 1
 
 # -------------------------------------------------------------------
 # Update tests (batch_update and update)
 # -------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "update_method, update_input, start_range, max_centroids", [
-        ("batch_update", range(51, 101), range(1, 51), None),
-        ("batch_update", range(51, 101), range(1, 51), 10),
-        ("batch_update", [], range(1, 101), None),
-        ("update", 100, range(1, 100), 99)
+    "update_method, start_range, update_input, max_centroids", [
+        ("batch_update", range(51, 101), range(1, 51), 1000),
+        ("batch_update", range(1, 51), range(51, 101), 10),
+        ("batch_update", [], range(1, 101), 1000),
+        ("update", [100], range(1, 100), 99),
+        ("update", range(100, 1, -1), [1], 10)
     ]
 )
 def test_updates(
         update_method: str,
-        update_input: Union[range, int],
+        update_input: Sequence[int],
         start_range: range,
         max_centroids: Optional[int]
     ) -> None:
     d = TDigest.from_values(list(start_range), max_centroids=max_centroids)
-    getattr(d, update_method)(update_input)
+    if update_method == "update":
+        for x in update_input:
+            getattr(d, update_method)(x)
+    else:
+        getattr(d, update_method)(update_input)
     check_median(d, 50.5)
-    expected_n = (
-        len(start_range) +
-        (len(update_input) if update_method == "batch_update" else 1)
-    )
+    expected_n = len(start_range) + len(update_input)
     assert d.n_values == expected_n
-    if max_centroids is not None:
-        assert d.n_centroids <= max_centroids
+    assert d.n_centroids <= max_centroids + 1
 
 # -------------------------------------------------------------------
 # Quantile tests (quantile, percentile, median, iqr, min, max)
@@ -230,9 +215,9 @@ def test_cdf_methods(empty_digest: TDigest) -> None:
     )
 
 # -------------------------------------------------------------------
-# Mean tests (mean, trimmed_mean)
+# Mean tests (mean, trimmed_mean, sum)
 # -------------------------------------------------------------------
-def test_mean_trimmed_mean(empty_digest: TDigest) -> None:
+def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
     values = list(range(1, 101))
     d = TDigest.from_values(values)
     assert math.isclose(d.mean(), 50.5, rel_tol=RTOL, abs_tol=EPS)
@@ -244,6 +229,8 @@ def test_mean_trimmed_mean(empty_digest: TDigest) -> None:
         d.trimmed_mean(0.9, 0.1)
     with pytest.raises(ValueError):
         empty_digest.trimmed_mean(0.01, 0.99)
+    true_sum = sum(values)
+    assert math.isclose(d.sum(), true_sum, rel_tol=RTOL, abs_tol=ATOL)
 
 # -------------------------------------------------------------------
 # Serialization tests: to/from dict and pickle

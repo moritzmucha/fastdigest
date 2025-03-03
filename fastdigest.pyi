@@ -3,36 +3,34 @@ from typing import Dict, Iterable, List, Sequence, Tuple, Optional, Union, Any
 class TDigest:
     def __init__(
             self,
-            max_centroids: Optional[int] = 1000
+            max_centroids: int = 1000
         ) -> None:
         """
         Initialize an empty TDigest instance.
 
-        :param optional max_centroids:
-            Maximum number of centroids to maintain. When provided, compression
-            is automatically performed during merging and updating operations
-            to keep the digest small and efficient. Default is 1000.
+        :param max_centroids:
+            Maximum number of centroids to maintain. The digest is automatically
+            compressed during merging and updating operations. Default is 1000.
         """
         ...
 
     @staticmethod
     def from_values(
             values: Sequence[Union[float, int]],
-            max_centroids: Optional[int] = 1000
+            max_centroids: int = 1000
         ) -> "TDigest":
         """
         Initialize a TDigest with a sequence of numerical values.
 
         :param values: Sequence of float or int values.
-        :param optional max_centroids:
-            Maximum number of centroids to maintain. When provided, compression
-            is automatically performed during merging and updating operations
-            to keep the digest small and efficient. Default is 1000.
+        :param max_centroids:
+            Maximum number of centroids to maintain. The digest is automatically
+            compressed during merging and updating operations. Default is 1000.
         """
         ...
 
     @property
-    def max_centroids(self) -> Optional[int]:
+    def max_centroids(self) -> int:
         """
         The maximum number of centroids instance parameter.
         
@@ -41,7 +39,7 @@ class TDigest:
         ...
 
     @max_centroids.setter
-    def max_centroids(self, value: Optional[int]) -> None: ...
+    def max_centroids(self, value: int) -> None: ...
 
     @property
     def n_values(self) -> int:
@@ -61,17 +59,6 @@ class TDigest:
         """
         ...
 
-    def compress(self, max_centroids: int) -> None:
-        """
-        Compress the TDigest in-place to `max_centroids` (or fewer)
-        centroids.
-
-        **Note:** there is a lower limit of `min(n_values, 3)` centroids.
-
-        :param max_centroids: Maximum number of centroids allowed.
-        """
-        ...
-
     def merge(self, other: "TDigest") -> "TDigest":
         """
         Merge this TDigest with another, returning a new TDigest.
@@ -79,11 +66,7 @@ class TDigest:
         Equivalent to the `+` operator.
 
         The resulting TDigest will use the higher of the two instances'
-        `max_centroids` parameters; if at least one of them is None
-        (no automatic compression), it will be None.
-
-        If `max_centroids` is set in the resulting TDigest, compression is
-        performed immediately after merging.
+        `max_centroids` parameters.
 
         :param other: Other TDigest instance.
         :return: New TDigest representing the merged data.
@@ -97,9 +80,6 @@ class TDigest:
         
         Equivalent to the `+=` operator.
 
-        If `max_centroids` is set in the calling TDigest, compression is
-        performed immediately after merging.
-
         :param other: Other TDigest instance.
         """
         ...
@@ -108,12 +88,6 @@ class TDigest:
         """
         Update the TDigest in-place with a sequence of numbers.
 
-        This is equivalent to creating a temporary TDigest from the values
-        and merging it into `self`.
-
-        If `max_centroids` is set, compression is performed immediately
-        after updating.
-
         :param values: Sequence of values to add.
         """
         ...
@@ -121,14 +95,6 @@ class TDigest:
     def update(self, value: Union[float, int]) -> None:
         """
         Update the TDigest in-place with a single value.
-
-        This is equivalent to `self.batch_update([value])`.
-
-        If `max_centroids` is set, compression is performed immediately
-        after updating.
-
-        **Note:** This is inefficient for iterative use.
-        Use `batch_update` whenever possible.
 
         :param value: Single value to add.
         """
@@ -216,6 +182,16 @@ class TDigest:
         Equivalent to `cdf(x2) - cdf(x1)`.
 
         :return: Float between 0 and 1 representing probability.
+        """
+        ...
+
+    def sum(self) -> float:
+        """
+        Return the sum of all ingested values.
+
+        This is an exact value (within float precision), not an estimate.
+
+        :return: Sum of all values.
         """
         ...
 
@@ -368,11 +344,7 @@ def merge_all(
     If `max_centroids` is provided, this value will be set in the new TDigest.
 
     Otherwise, the resulting TDigest will use the highest of the instances'
-    `max_centroids` parameters; if at least one of them is None
-    (no automatic compression), it will be None.
-
-    If `max_centroids` is set in the resulting TDigest, compression is
-    performed immediately after merging.
+    `max_centroids` parameters.
 
     :param digests: Iterable of TDigest instances to merge.
     :param optional max_centroids:
