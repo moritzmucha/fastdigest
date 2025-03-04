@@ -1,6 +1,6 @@
 mod tdigest;
 
-use pyo3::exceptions::{PyKeyError, PyValueError};
+use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use tdigest::{Centroid, TDigest, DEFAULT_MAX_CENTROIDS};
@@ -478,15 +478,17 @@ pub fn merge_all(
 ) -> PyResult<PyTDigest> {
     // Convert any iterable into a Vec<TDigest>
     let digests: Vec<TDigest> = digests
-        .try_iter()?
-        .map(|item| {
-            let mut py_tdigest = item
-                .and_then(|x| x.extract::<PyTDigest>())
-                .expect("Provide an iterable of TDigests.");
-            flush_state(&mut py_tdigest);
-            py_tdigest.digest.clone()
-        })
-        .collect();
+    .try_iter()?
+    .map(|item| {
+        let mut py_tdigest = item
+            .and_then(|x| x.extract::<PyTDigest>())
+            .map_err(|_| {
+                PyTypeError::new_err("Provide an iterable of TDigests.")
+            })?;
+        flush_state(&mut py_tdigest);
+        Ok(py_tdigest.digest.clone())
+    })
+    .collect::<PyResult<Vec<_>>>()?;
     
     let merged = TDigest::merge_digests(digests, max_centroids);
     Ok(PyTDigest {
