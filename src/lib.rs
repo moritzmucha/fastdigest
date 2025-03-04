@@ -294,6 +294,8 @@ impl PyTDigest {
         let dict = PyDict::new(py);
 
         dict.set_item("max_centroids", self.digest.max_size())?;
+        dict.set_item("min", self.digest.min())?;
+        dict.set_item("max", self.digest.max())?;
 
         let centroid_list = PyList::empty(py);
         for centroid in self.digest.centroids() {
@@ -312,14 +314,6 @@ impl PyTDigest {
     pub fn from_dict<'py>(
         tdigest_dict: &Bound<'py, PyDict>,
     ) -> PyResult<Self> {
-        // Check if the "max_centroids" key exists
-        let max_centroids: usize =
-            match tdigest_dict.get_item("max_centroids")? {
-                Some(obj) => obj.extract()?,
-                // If missing or null, set the default value.
-                _ => DEFAULT_MAX_CENTROIDS,
-            };
-
         let centroids_obj: Bound<'py, PyAny> =
             tdigest_dict.get_item("centroids")?.ok_or_else(|| {
                 PyKeyError::new_err("Key 'centroids' not found in dictionary.")
@@ -349,9 +343,33 @@ impl PyTDigest {
             centroids.push(Centroid::new(mean, weight));
             sum += mean * weight;
             count += weight;
-            min = if min.is_nan() { mean } else { min.min(mean) };
-            max = if max.is_nan() { mean } else { max.max(mean) };
+            min = min.min(mean);
+            max = max.max(mean);
         }
+
+        // Check if the "max_centroids" key exists
+        let max_centroids: usize =
+            match tdigest_dict.get_item("max_centroids")? {
+                Some(obj) => obj.extract()?,
+                // If missing or null, set the default value.
+                _ => DEFAULT_MAX_CENTROIDS,
+            };
+
+        // Check if the "min" key exists
+        let min: f64 =
+            match tdigest_dict.get_item("min")? {
+                Some(obj) => obj.extract()?,
+                // If missing or null, take the lowest centroid.
+                _ => min,
+            };
+
+        // Check if the "max" key exists
+        let max: f64 =
+            match tdigest_dict.get_item("max")? {
+                Some(obj) => obj.extract()?,
+                // If missing or null, take the highest centroid.
+                _ => max,
+            };
 
         let digest = if !centroids.is_empty() {
             TDigest::new(centroids, sum, count, max, min, max_centroids)
@@ -417,7 +435,7 @@ impl PyTDigest {
         flush_state(self);
         flush_state(other);
 
-        if self.digest.max_size() != other.digest.max_size() {
+        if !tdigest_fields_equal(&self.digest, &other.digest) {
             return Ok(false);
         }
         let self_centroids = self.digest.centroids();
@@ -500,6 +518,17 @@ fn flush_state(state: &mut PyTDigest) {
     ));
     state.digest = new;
     state.i = 0;
+}
+
+/// Helper function to compare two TDigest instances
+fn tdigest_fields_equal(d1: &TDigest, d2: &TDigest) -> bool {
+    (d1.sum() - d2.sum()).abs() < f64::EPSILON
+        && (d1.count() - d2.count()).abs() < f64::EPSILON
+        && ((d1.max().is_nan() && d2.max().is_nan())
+            || ((d1.max() - d2.max()).abs() < f64::EPSILON))
+        && ((d1.min().is_nan() && d2.min().is_nan())
+            || ((d1.min() - d2.min()).abs() < f64::EPSILON))
+        && (d1.max_size() == d2.max_size())
 }
 
 /// Helper function to compare two Centroids
