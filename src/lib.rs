@@ -544,5 +544,6 @@ fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
 fn fastdigest(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTDigest>()?;
     m.add_function(wrap_pyfunction!(merge_all, m)?)?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
