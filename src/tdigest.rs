@@ -227,8 +227,10 @@ impl TDigest {
             .map(OrderedFloat::from)
             .collect();
         sorted_values.sort();
-        let sorted_values =
-            sorted_values.into_iter().map(|f| f.into_inner()).collect();
+        let sorted_values = sorted_values
+            .into_iter()
+            .map(|f| f.into_inner())
+            .collect();
 
         self.merge_sorted(sorted_values)
     }
@@ -242,8 +244,10 @@ impl TDigest {
         result.count =
             OrderedFloat::from(self.count() + (sorted_values.len() as f64));
 
-        let maybe_min = OrderedFloat::from(*sorted_values.first().unwrap());
-        let maybe_max = OrderedFloat::from(*sorted_values.last().unwrap());
+        let maybe_min =
+            OrderedFloat::from(*sorted_values.first().unwrap());
+        let maybe_max =
+            OrderedFloat::from(*sorted_values.last().unwrap());
 
         if self.count() > 0.0 {
             result.min = std::cmp::min(self.min, maybe_min);
@@ -261,10 +265,13 @@ impl TDigest {
                 * result.count.into_inner();
         k_limit += 1.0;
 
-        let mut iter_centroids = self.centroids.iter().peekable();
-        let mut iter_sorted_values = sorted_values.iter().peekable();
+        let mut iter_centroids =
+            self.centroids.iter().peekable();
+        let mut iter_sorted_values =
+            sorted_values.iter().peekable();
 
-        let mut curr: Centroid = if let Some(c) = iter_centroids.peek() {
+        let mut curr: Centroid = if let Some(c) = iter_centroids.peek()
+        {
             let curr = **iter_sorted_values.peek().unwrap();
             if c.mean() < curr {
                 iter_centroids.next().unwrap().clone()
@@ -283,13 +290,17 @@ impl TDigest {
         while iter_centroids.peek().is_some()
             || iter_sorted_values.peek().is_some()
         {
-            let next: Centroid = if let Some(c) = iter_centroids.peek() {
+            let next: Centroid = if let Some(c) = iter_centroids.peek()
+            {
                 if iter_sorted_values.peek().is_none()
                     || c.mean() < **iter_sorted_values.peek().unwrap()
                 {
                     iter_centroids.next().unwrap().clone()
                 } else {
-                    Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                    Centroid::new(
+                        *iter_sorted_values.next().unwrap(),
+                        1.0,
+                    )
                 }
             } else {
                 Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
@@ -425,11 +436,12 @@ impl TDigest {
                 if i + digests_per_block < starts.len() {
                     let first = starts[i];
                     let middle = starts[i + digests_per_block];
-                    let last = if i + 2 * digests_per_block < starts.len() {
-                        starts[i + 2 * digests_per_block]
-                    } else {
-                        centroids.len()
-                    };
+                    let last =
+                        if i + 2 * digests_per_block < starts.len() {
+                            starts[i + 2 * digests_per_block]
+                        } else {
+                            centroids.len()
+                        };
 
                     debug_assert!(first <= middle && middle <= last);
                     Self::external_merge(&mut centroids, first, middle, last);
@@ -504,10 +516,10 @@ impl TDigest {
 
         for (k, centroid) in self.centroids.iter().enumerate() {
             cum_left = cum_right;
-            cum_right = (2.0 * cumulative + centroid.weight.into_inner()
-                - 1.0)
-                / 2.0
-                / (total_weight - 1.0);
+            cum_right =
+                (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
+                    / 2.0
+                    / (total_weight - 1.0);
             cumulative += centroid.weight.into_inner();
 
             if cum_right >= q {
@@ -538,7 +550,11 @@ impl TDigest {
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
     pub fn estimate_rank(&self, x: f64) -> f64 {
         if self.centroids.len() == 1 {
-            match self.centroids[0].mean.into_inner().partial_cmp(&x).unwrap()
+            match self.centroids[0]
+                .mean
+                .into_inner()
+                .partial_cmp(&x)
+                .unwrap()
             {
                 Ordering::Less => return 1.0,
                 Ordering::Equal => return 0.5,
@@ -554,10 +570,10 @@ impl TDigest {
 
         for (k, centroid) in self.centroids.iter().enumerate() {
             cum_left = cum_right;
-            cum_right = (2.0 * cumulative + centroid.weight.into_inner()
-                - 1.0)
-                / 2.0
-                / (total_weight - 1.0);
+            cum_right =
+                (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
+                    / 2.0
+                    / (total_weight - 1.0);
             cumulative += centroid.weight.into_inner();
 
             if centroid.mean.into_inner() >= x {
