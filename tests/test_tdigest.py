@@ -3,14 +3,15 @@ import math
 import random
 import pickle
 from copy import copy, deepcopy
-from typing import Callable, Optional, Sequence, List
+from typing import Callable, Sequence, List
 from fastdigest import TDigest
 from utils import (
     EPS,
     RTOL,
     ATOL,
     DEFAULT_MAX_CENTROIDS,
-    check_median,
+    calculate_sample_quantiles,
+    check_sample_quantiles,
     check_tdigest_equality,
 )
 
@@ -90,8 +91,9 @@ def test_merge_operations(
     ) -> None:
     d1 = TDigest.from_values(range(1, 51))
     d2 = TDigest.from_values(range(51, 101))
+    expected = calculate_sample_quantiles(range(1, 101))
     merged = merge_func(d1, d2)
-    check_median(merged, 50.5)
+    check_sample_quantiles(merged, expected)
     assert merged.n_values == 100
 
 def test_merge_with_max_centroids() -> None:
@@ -114,8 +116,9 @@ def test_merge_with_max_centroids() -> None:
 def test_merge_inplace() -> None:
     d1 = TDigest.from_values(range(1, 51))
     d2 = TDigest.from_values(range(51, 101))
+    expected = calculate_sample_quantiles(range(1, 101))
     d1.merge_inplace(d2)
-    check_median(d1, 50.5)
+    check_sample_quantiles(d1, expected)
     assert d1.n_values == 100
     d1.max_centroids = 3
     d1.merge_inplace(d2)
@@ -126,9 +129,10 @@ def test_merge_inplace() -> None:
     empty = TDigest()
     d = TDigest.from_values(range(1, 51))
     d.merge_inplace(empty)
-    check_median(d, 25.5)
+    expected = calculate_sample_quantiles(range(1, 51))
+    check_sample_quantiles(d, expected)
     empty.merge_inplace(d)
-    check_median(empty, 25.5)
+    check_sample_quantiles(empty, expected)
 
 @pytest.mark.parametrize("iadd_op", [
     lambda d1, d2: d1 + d2,
@@ -137,8 +141,9 @@ def test_merge_inplace() -> None:
 def test_add_iadd(iadd_op: Callable[[TDigest, TDigest], TDigest]) -> None:
     d1 = TDigest.from_values(range(1, 51))
     d2 = TDigest.from_values(range(51, 101))
+    expected = calculate_sample_quantiles(range(1, 101))
     result = iadd_op(d1, d2)
-    check_median(result, 50.5)
+    check_sample_quantiles(result, expected)
 
 def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
     digest = TDigest.from_values(range(101))
@@ -152,18 +157,18 @@ def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
 # -------------------------------------------------------------------
 @pytest.mark.parametrize(
     "update_method, start_range, update_input, max_centroids", [
-        ("batch_update", range(51, 101), range(1, 51), 1000),
-        ("batch_update", range(1, 51), range(51, 101), 10),
-        ("batch_update", [], range(1, 101), 1000),
-        ("update", [100], range(1, 100), 99),
-        ("update", range(100, 1, -1), [1], 10)
+        ("batch_update", range(1, 51), range(51, 101), 1000),
+        ("batch_update", range(51, 101), range(1, 51), 20),
+        ("batch_update", range(1, 101), [], 1000),
+        ("update", range(1, 100), [100], 20),
+        ("update", range(100, 2, -1), [1, 2], 1000)
     ]
 )
 def test_updates(
         update_method: str,
+        start_range: Sequence[int],
         update_input: Sequence[int],
-        start_range: range,
-        max_centroids: Optional[int]
+        max_centroids: int
     ) -> None:
     d = TDigest.from_values(list(start_range), max_centroids=max_centroids)
     if update_method == "update":
@@ -171,7 +176,8 @@ def test_updates(
             getattr(d, update_method)(x)
     else:
         getattr(d, update_method)(update_input)
-    check_median(d, 50.5)
+    expected = calculate_sample_quantiles(range(1, 101))
+    check_sample_quantiles(d, expected)
     expected_n = len(start_range) + len(update_input)
     assert d.n_values == expected_n
     assert d.n_centroids <= max_centroids + 1
@@ -183,14 +189,14 @@ def test_quantile_median_min_max(empty_digest: TDigest) -> None:
     data = list(range(2, 199))
     random.shuffle(data)
     d = TDigest.from_values(data)
-    median_est = 100.0
-    check_median(d, median_est)
+    expected = calculate_sample_quantiles(range(2, 199))
+    check_sample_quantiles(d, expected)
     with pytest.raises(ValueError):
         empty_digest.quantile(0.5)
     p = d.percentile(50)
-    assert math.isclose(p, median_est, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(p, 100.0, rel_tol=RTOL, abs_tol=ATOL)
     m = d.median()
-    assert math.isclose(m, median_est, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(m, 100.0, rel_tol=RTOL, abs_tol=ATOL)
     assert math.isclose(d.iqr(), 98.0, rel_tol=RTOL, abs_tol=ATOL)
     assert math.isclose(d.min(), 2.0, rel_tol=RTOL, abs_tol=EPS)
     assert math.isclose(d.max(), 198.0, rel_tol=RTOL, abs_tol=EPS)
@@ -237,15 +243,13 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
 # -------------------------------------------------------------------
 def test_to_from_dict() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
-    d_dict: dict = d.to_dict()
+    d_dict = d.to_dict()
     assert isinstance(d_dict, dict)
     new_d = TDigest.from_dict(d_dict)
-    assert d == new_d
     check_tdigest_equality(d, new_d)
     d = TDigest.from_values(range(1, 101), max_centroids=3)
     d_dict = d.to_dict()
     new_d = TDigest.from_dict(d_dict)
-    assert d == new_d
     check_tdigest_equality(d, new_d)
     d = TDigest()
     d_dict = d.to_dict()
@@ -267,7 +271,6 @@ def test_to_from_dict() -> None:
 def test_copy_methods(copy_func: Callable[[TDigest], TDigest]) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     d_copy = copy_func(d)
-    assert d == d_copy
     check_tdigest_equality(d, d_copy)
     assert id(d_copy) != id(d)
     empty = TDigest()
@@ -278,12 +281,10 @@ def test_pickle_unpickle() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     dumped = pickle.dumps(d)
     unpickled = pickle.loads(dumped)
-    assert d == unpickled
     check_tdigest_equality(d, unpickled)
     d = TDigest.from_values(range(1, 101), max_centroids=3)
     dumped = pickle.dumps(d)
     unpickled = pickle.loads(dumped)
-    assert d == unpickled
     check_tdigest_equality(d, unpickled)
     d = TDigest()
     dumped = pickle.dumps(d)
