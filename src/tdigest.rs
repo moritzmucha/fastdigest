@@ -508,7 +508,6 @@ impl TDigest {
             return self.centroids[0].mean.into_inner();
         }
 
-        let total_weight = self.total_weight();
         let mut cumulative = 0.0;
         let mut cum_left = 0.0;
         let mut cum_right = 0.0;
@@ -519,7 +518,7 @@ impl TDigest {
             cum_right =
                 (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
                     / 2.0
-                    / (total_weight - 1.0);
+                    / (self.count() - 1.0);
             cumulative += centroid.weight.into_inner();
 
             if cum_right >= q {
@@ -562,7 +561,6 @@ impl TDigest {
             }
         }
 
-        let total_weight = self.total_weight();
         let mut cumulative = 0.0;
         let mut cum_left = 0.0;
         let mut cum_right = 0.0;
@@ -573,7 +571,7 @@ impl TDigest {
             cum_right =
                 (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
                     / 2.0
-                    / (total_weight - 1.0);
+                    / (self.count() - 1.0);
             cumulative += centroid.weight.into_inner();
 
             if centroid.mean.into_inner() >= x {
@@ -600,13 +598,5 @@ impl TDigest {
                 - centroid_left.mean.into_inner());
 
         cum_left + fraction * weight_between
-    }
-
-    /// Returns the total weight of all centroids.
-    fn total_weight(&self) -> f64 {
-        let total_weight =
-            self.centroids.iter().map(|c| c.weight.into_inner()).sum();
-        assert_ne!(total_weight, 0.0);
-        total_weight
     }
 }
