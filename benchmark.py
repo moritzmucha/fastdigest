@@ -3,13 +3,12 @@ import random
 import argparse
 from fastdigest import TDigest
 from statistics import mean, stdev
-from typing import Callable, Sequence, Tuple, Type, TypeVar
+from typing import Sequence, Tuple, Type, TypeVar, Union
 
-N = 1_000_000  # default size of dataset
-Q = 0.5        # default quantile to estimate
-R = 1          # default number of benchmark runs
-
-INCREMENTAL = False  # global switch to use update() instead of batch_update()
+# Default values:
+P = 50         # percentile to estimate
+N = 1_000_000  # size of the dataset
+R = 1          # number of benchmark runs
 
 try:
     from tdigest import TDigest as LegacyTDigest
@@ -24,24 +23,26 @@ T = TypeVar("T")
 def compute(
         cls: Type[T],
         dataset: Sequence[float],
-        q: float
+        incremental: bool = False,
+        p: Union[float, int] = P
     ) -> Tuple[float, float]:
     start = time.perf_counter()
     digest = cls()
-    if INCREMENTAL:
+    if incremental:
         for x in dataset:
             digest.update(x)
     else:
         digest.batch_update(dataset)
-    result = digest.percentile(100. * q)
+    result = digest.percentile(p)
     elapsed_ms = 1000 * (time.perf_counter() - start)
     return result, elapsed_ms
 
 def run_benchmark(
         cls: Type[T],
         name: str,
+        incremental: bool = False,
+        p: Union[float, int] = P,
         n: int = N,
-        q: float = Q,
         r: int = R
     ) -> float:
     times = []
@@ -57,7 +58,7 @@ def run_benchmark(
                 end="",
                 flush=True
             )
-        result, elapsed_ms = compute(cls, data, q)
+        result, elapsed_ms = compute(cls, data, incremental, p)
         times.append(elapsed_ms)
     t_mean = mean(times)
     if r > 1:
@@ -73,9 +74,20 @@ def run_benchmark(
     )
     return t_mean
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         description="Benchmark fastDigest against the older tdigest library."
+    )
+    parser.add_argument(
+        "-i", "--incremental",
+        action = "store_true",
+        help = "use update() instead of batch_update()"
+    )
+    parser.add_argument(
+        "-p", "--percentile",
+        type = float,
+        default = float(P),
+        help = f"percentile to estimate (default: {P})"
     )
     parser.add_argument(
         "-n", "--n-values",
@@ -84,26 +96,34 @@ if __name__ == '__main__':
         help = f"size of the dataset (default: {N:_})"
     )
     parser.add_argument(
-        "-q", "--quantile",
-        type = float,
-        default = Q,
-        help = f"quantile to estimate (default: {Q})"
-    )
-    parser.add_argument(
         "-r", "--repeat",
         type = int,
         default = R,
         help = f"number of benchmark runs (default: {R:_})"
     )
     args = parser.parse_args()
+    i = args.incremental
     n = args.n_values
-    q = args.quantile
+    p = args.percentile
     r = args.repeat
 
-    if LegacyTDigest is not None:
-        t_legacy = run_benchmark(LegacyTDigest, "Legacy tdigest", n, q, r)
+    if not 0 <= p <= 100:
+        print("p must be between 0 and 100.")
+        return
+    if n < 1:
+        print("n must be at least 1.")
+        return
+    if r < 1:
+        print("r must be at least 1.")
+        return
 
-    t_fast = run_benchmark(TDigest, "fastDigest", n, q, r)
+    if LegacyTDigest is not None:
+        t_legacy = run_benchmark(LegacyTDigest, "Legacy tdigest", i, p, n, r)
+
+    t_fast = run_benchmark(TDigest, "fastDigest", i, p, n, r)
 
     if LegacyTDigest is not None:
         print(f"{'Speedup':>14}: {t_legacy / t_fast:.0f}x")
+
+if __name__ == '__main__':
+    main()
