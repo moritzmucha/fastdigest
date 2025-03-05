@@ -9,8 +9,9 @@ class TDigest:
         Initialize an empty TDigest instance.
 
         :param max_centroids:
-            Maximum number of centroids to maintain. The digest is automatically
-            compressed during merging and updating operations. Default is 1000.
+            Number of centroids to maintain. A lower value enables a
+            smaller memory footprint and faster computation speed at the
+            cost of some accuracy. Default is 1000.
         """
         ...
 
@@ -24,8 +25,9 @@ class TDigest:
 
         :param values: Sequence of float or int values.
         :param max_centroids:
-            Maximum number of centroids to maintain. The digest is automatically
-            compressed during merging and updating operations. Default is 1000.
+            Number of centroids to maintain. A lower value enables a
+            smaller memory footprint and faster computation speed at the
+            cost of some accuracy. Default is 1000.
         """
         ...
 
@@ -88,6 +90,9 @@ class TDigest:
         """
         Update the TDigest in-place with a sequence of numbers.
 
+        This directly performs a merge, which is faster than looping over
+        `update` in most cases.
+
         :param values: Sequence of values to add.
         """
         ...
@@ -95,6 +100,10 @@ class TDigest:
     def update(self, value: Union[float, int]) -> None:
         """
         Update the TDigest in-place with a single value.
+
+        This writes to a stack-allocated buffer before merging, which can be
+        significantly faster than `batch_update` if you have to iteratively
+        add one observed value at a time, e.g. in streaming applications.
 
         :param value: Single value to add.
         """
@@ -189,7 +198,8 @@ class TDigest:
         """
         Return the sum of all ingested values.
 
-        This is an exact value (within float precision), not an estimate.
+        This is an exact value (aside from accumulated floating-point error),
+        not an estimate.
 
         :return: Sum of all values.
         """
@@ -199,7 +209,8 @@ class TDigest:
         """
         Calculate the arithmetic mean of all ingested values.
 
-        This is an exact value, not an estimate.
+        This is an exact value (aside from accumulated floating-point error),
+        not an estimate.
 
         :return: Arithmetic mean.
         """
@@ -220,8 +231,9 @@ class TDigest:
         """
         Return a dictionary representation of the TDigest.
 
-        The returned dict contains a key "centroids" that maps to a list of
-        centroids, where each centroid is a dict with keys "m" and "c".
+        The returned dict contains a "centroids" list, where each centroid
+        is represented as a dict with keys "m" and "c".
+        It also contains instance parameters such as `max_centroids`.
 
         :return: Dictionary representation of the TDigest.
         """
@@ -343,14 +355,16 @@ def merge_all(
 
     If `max_centroids` is provided, this value will be set in the new TDigest.
 
-    Otherwise, the resulting TDigest will use the highest of the instances'
-    `max_centroids` parameters.
+    Otherwise, the resulting TDigest will use the maximum of the parameters of
+    the input instances.
 
     :param digests: Iterable of TDigest instances to merge.
     :param optional max_centroids:
-        Maximum number of centroids to maintain.
+        Parameter to be used for the new instance.
         If None, the value is determined from the source TDigests.
         Default is None.
     :return: New TDigest representing the merged data.
     """
     ...
+
+__version__: str

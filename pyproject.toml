@@ -51,6 +51,6 @@ include = [
   "LICENSE",
   "THIRD-PARTY-NOTICES",
   "README.md",
-  "API_Reference.ipynb"
+  "API.md"
 ]
 bindings = "pyo3"

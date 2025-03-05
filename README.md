@@ -30,7 +30,7 @@
 - **Updating**: Update a t-digest incrementally with streaming data or batches of large datasets.
 - **Merging**: Merge many t-digests into one, enabling parallel compute operations such as map-reduce.
 - **Serialization**: Use the `to_dict`/`from_dict` methods or the `pickle` module for serialization.
-- **Easy API**: The *fastDigest* API is designed to be intuitive and have high overlap with popular libraries.
+- **Easy API**: The *fastDigest* API is designed to be intuitive and to keep high overlap with popular libraries.
 - **Blazing fast**: Thanks to its Rust backbone, this module is hundreds of times faster than other Python implementations.
 
 ## Installation
@@ -64,7 +64,7 @@ pip install target/wheels/fastdigest-0.8.0-<platform-tag>.whl
 
 ## Usage
 
-The following examples give you a quick start. For the full documentation, see [API_Reference.ipynb](https://github.com/moritzmucha/fastdigest/blob/main/API_Reference.ipynb).
+The following examples give you a quick start. See the [API reference](https://github.com/moritzmucha/fastdigest/blob/main/API.md) for the full documentation.
 
 ### Initialization
 
@@ -104,13 +104,15 @@ print(f"Trimmed mean: {digest.trimmed_mean(0.1, 0.9)}")
 
 ### Updating a TDigest
 
-Use `batch_update` to update a TDigest in-place with a sequence of values:
+Use `batch_update` to merge a sequence of many values at once, or `update` to add one value at a time:
 
 ```python
 digest = TDigest()
-digest.batch_update([1, 2, 3])
-digest.batch_update([4, 5, 6])
+digest.batch_update([0, 1, 2])
+digest.update(3)
 ```
+
+Note that there can be significant performance differences between these methods depending on use-case.
 
 ### Merging TDigest objects
 
@@ -177,4 +179,4 @@ python benchmark.py
 
 ## Acknowledgements
 
-Credit goes to Ted Dunning for inventing the [t-digest](https://github.com/tdunning/t-digest). Special thanks to Andy Lok and Paul Meng for creating the [*tdigests*](https://github.com/andylokandy/tdigests) and [*tdigest*](https://github.com/MnO2/t-digest/) Rust libraries, respectively, as well as to all [*PyO3* contributors](https://github.com/pyo3).
+Credit goes to Ted Dunning for inventing the [t-digest](https://github.com/tdunning/t-digest). Special thanks to Andy Lok and Paul Meng for creating the [*tdigests*](https://github.com/andylokandy/tdigests) and [*tdigest*](https://github.com/MnO2/t-digest) Rust libraries, respectively, as well as to all [*PyO3* contributors](https://github.com/pyo3).
