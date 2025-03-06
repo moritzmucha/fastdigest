@@ -5,11 +5,13 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use tdigest::{Centroid, TDigest, DEFAULT_MAX_CENTROIDS};
 
+const CACHE_SIZE: u8 = 255;
+
 #[pyclass(name = "TDigest", module = "fastdigest")]
 #[derive(Clone)]
 pub struct PyTDigest {
     digest: TDigest,
-    amortized_observations: [f64; 32],
+    cache: [f64; CACHE_SIZE as usize],
     i: u8,
 }
 
@@ -17,7 +19,7 @@ impl Default for PyTDigest {
     fn default() -> Self {
         Self {
             digest: TDigest::new_with_size(DEFAULT_MAX_CENTROIDS),
-            amortized_observations: [0.0; 32],
+            cache: [0.0; CACHE_SIZE as usize],
             i: 0,
         }
     }
@@ -72,21 +74,21 @@ impl PyTDigest {
     /// Getter property: returns the total number of data points ingested.
     #[getter(n_values)]
     pub fn get_n_values(&mut self) -> PyResult<u64> {
-        flush_state(self);
+        flush_cache(self);
         Ok(self.digest.count().round() as u64)
     }
 
     /// Getter property: returns the number of centroids.
     #[getter(n_centroids)]
     pub fn get_n_centroids(&mut self) -> PyResult<usize> {
-        flush_state(self);
+        flush_cache(self);
         Ok(self.digest.centroids().len())
     }
 
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&mut self, other: &mut Self) -> PyResult<Self> {
-        flush_state(self);
-        flush_state(other);
+        flush_cache(self);
+        flush_cache(other);
 
         let digests: Vec<TDigest> =
             vec![self.digest.clone(), other.digest.clone()];
@@ -99,8 +101,8 @@ impl PyTDigest {
 
     /// Merges this digest with another, modifying the current instance.
     pub fn merge_inplace(&mut self, other: &mut Self) {
-        flush_state(self);
-        flush_state(other);
+        flush_cache(self);
+        flush_cache(other);
 
         let digests: Vec<TDigest> =
             vec![self.digest.clone(), other.digest.clone()];
@@ -110,7 +112,7 @@ impl PyTDigest {
 
     /// Updates the digest (in-place) with a sequence of float values.
     pub fn batch_update(&mut self, values: Vec<f64>) {
-        flush_state(self);
+        flush_cache(self);
 
         if values.is_empty() {
             return;
@@ -126,7 +128,7 @@ impl PyTDigest {
 
     /// Estimates the quantile for a given cumulative probability `q`.
     pub fn quantile(&mut self, q: f64) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if q < 0.0 || q > 1.0 {
             return Err(PyValueError::new_err("q must be between 0 and 1."));
@@ -139,7 +141,7 @@ impl PyTDigest {
 
     /// Estimates the percentile for a given cumulative probability `p` (%).
     pub fn percentile(&mut self, p: f64) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if p < 0.0 || p > 100.0 {
             return Err(PyValueError::new_err("p must be between 0 and 100."));
@@ -152,7 +154,7 @@ impl PyTDigest {
 
     /// Estimates the rank (cumulative probability) of a given value `x`.
     pub fn cdf(&mut self, x: f64) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -162,7 +164,7 @@ impl PyTDigest {
 
     /// Returns the trimmed mean of the data between the q1 and q2 quantiles.
     pub fn trimmed_mean(&mut self, q1: f64, q2: f64) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if q1 < 0.0 || q2 > 1.0 || q1 >= q2 {
             return Err(PyValueError::new_err(
@@ -215,7 +217,7 @@ impl PyTDigest {
     /// Estimates the empirical probability of a value being in
     /// the interval \[`x1`, `x2`\].
     pub fn probability(&mut self, x1: f64, x2: f64) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if x1 > x2 {
             return Err(PyValueError::new_err(
@@ -231,7 +233,7 @@ impl PyTDigest {
 
     /// Returns the sum of the data.
     pub fn sum(&mut self) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -241,7 +243,7 @@ impl PyTDigest {
 
     /// Returns the mean of the data.
     pub fn mean(&mut self) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -251,7 +253,7 @@ impl PyTDigest {
 
     /// Returns the lowest ingested value.
     pub fn min(&mut self) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -261,7 +263,7 @@ impl PyTDigest {
 
     /// Returns the highest ingested value.
     pub fn max(&mut self) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -271,7 +273,7 @@ impl PyTDigest {
 
     /// Estimates the median.
     pub fn median(&mut self) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -281,7 +283,7 @@ impl PyTDigest {
 
     /// Estimates the inter-quartile range.
     pub fn iqr(&mut self) -> PyResult<f64> {
-        flush_state(self);
+        flush_cache(self);
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -295,7 +297,7 @@ impl PyTDigest {
     /// The dict contains a key "centroids" mapping to a list of dicts,
     /// each with keys "m" (mean) and "c" (weight or count).
     pub fn to_dict(&mut self, py: Python) -> PyResult<PyObject> {
-        flush_state(self);
+        flush_cache(self);
 
         let dict = PyDict::new(py);
 
@@ -391,13 +393,13 @@ impl PyTDigest {
 
     /// TDigest.copy() returns a copy of the instance.
     pub fn copy(&mut self) -> PyResult<Self> {
-        flush_state(self);
+        flush_cache(self);
         Ok(self.clone())
     }
 
     /// Magic method: copy(digest) returns a copy of the instance.
     pub fn __copy__(&mut self) -> PyResult<Self> {
-        flush_state(self);
+        flush_cache(self);
         Ok(self.clone())
     }
 
@@ -406,7 +408,7 @@ impl PyTDigest {
         &mut self,
         _memo: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        flush_state(self);
+        flush_cache(self);
         Ok(self.clone())
     }
 
@@ -437,8 +439,8 @@ impl PyTDigest {
 
     /// Magic method: enables equality checking (==)
     pub fn __eq__(&mut self, other: &mut Self) -> PyResult<bool> {
-        flush_state(self);
-        flush_state(other);
+        flush_cache(self);
+        flush_cache(other);
 
         if !tdigest_fields_equal(&self.digest, &other.digest) {
             return Ok(false);
@@ -490,7 +492,7 @@ pub fn merge_all(
             .map_err(|_| {
                 PyTypeError::new_err("Provide an iterable of TDigests.")
             })?;
-        flush_state(&mut py_tdigest);
+        flush_cache(&mut py_tdigest);
         Ok(py_tdigest.digest.clone())
     })
     .collect::<PyResult<Vec<_>>>()?;
@@ -505,24 +507,22 @@ pub fn merge_all(
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline]
 fn record_observation(state: &mut PyTDigest, observation: f64) {
-    let index = state.i as usize;
-    state.amortized_observations[index] = observation;
+    state.cache[state.i as usize] = observation;
     state.i += 1;
-    if state.i == state.amortized_observations.len() as u8 {
-        flush_state(state)
+    if state.i == CACHE_SIZE {
+        flush_cache(state)
     }
 }
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline]
-fn flush_state(state: &mut PyTDigest) {
+fn flush_cache(state: &mut PyTDigest) {
     if state.i < 1 {
         return;
     }
-    let new = state.digest.merge_unsorted(Vec::from(
-        &state.amortized_observations[0..state.i as usize],
+    state.digest = state.digest.merge_unsorted(Vec::from(
+        &state.cache[0..state.i as usize],
     ));
-    state.digest = new;
     state.i = 0;
 }
 
