@@ -13,6 +13,16 @@ pub struct PyTDigest {
     i: u8,
 }
 
+impl Default for PyTDigest {
+    fn default() -> Self {
+        Self {
+            digest: TDigest::new_with_size(DEFAULT_MAX_CENTROIDS),
+            amortized_observations: [0.0; 32],
+            i: 0,
+        }
+    }
+}
+
 #[pymethods]
 impl PyTDigest {
     /// Constructs a new empty TDigest instance.
@@ -21,8 +31,7 @@ impl PyTDigest {
     pub fn new(max_centroids: usize) -> PyResult<Self> {
         Ok(Self {
             digest: TDigest::new_with_size(max_centroids),
-            amortized_observations: [0.0; 32],
-            i: 0,
+            ..Default::default()
         })
     }
 
@@ -37,15 +46,13 @@ impl PyTDigest {
         if values.is_empty() {
             Ok(Self {
                 digest,
-                amortized_observations: [0.0; 32],
-                i: 0,
+                ..Default::default()
             })
         } else {
             let digest = digest.merge_unsorted(values);
             Ok(Self {
                 digest,
-                amortized_observations: [0.0; 32],
-                i: 0,
+                ..Default::default()
             })
         }
     }
@@ -86,8 +93,7 @@ impl PyTDigest {
         let merged = TDigest::merge_digests(digests, None);
         Ok(Self {
             digest: merged,
-            amortized_observations: [0.0; 32],
-            i: 0,
+            ..Default::default()
         })
     }
 
@@ -379,8 +385,7 @@ impl PyTDigest {
 
         Ok(Self {
             digest,
-            amortized_observations: [0.0; 32],
-            i: 0,
+            ..Default::default()
         })
     }
 
@@ -493,8 +498,7 @@ pub fn merge_all(
     let merged = TDigest::merge_digests(digests, max_centroids);
     Ok(PyTDigest {
         digest: merged,
-        amortized_observations: [0.0; 32],
-        i: 0,
+        ..Default::default()
     })
 }
 
