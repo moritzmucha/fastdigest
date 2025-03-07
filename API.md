@@ -341,6 +341,10 @@ print(f"{digest}: {digest.n_values} values")
 
 ### Other methods and properties
 
+#### self.is_empty
+
+Returns `True` if no data has been ingested yet.
+
 #### self.n_values
 
 Returns the total number of values ingested.

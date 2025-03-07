@@ -33,6 +33,7 @@ def sample_values() -> List[int]:
 def test_init() -> None:
     d = TDigest()
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
+    assert d.is_empty
     assert d.n_values == 0
     assert d.n_centroids == 0
     d = TDigest(max_centroids=3)
@@ -48,6 +49,7 @@ def test_init() -> None:
 def test_from_values(values: Sequence[int]) -> None:
     d = TDigest.from_values(values)
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
+    assert not d.is_empty
     assert d.n_values == len(values)
     assert d.n_centroids == len(values)
 

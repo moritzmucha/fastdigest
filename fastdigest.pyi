@@ -61,6 +61,15 @@ class TDigest:
         """
         ...
 
+    @property
+    def is_empty(self) -> bool:
+        """
+        True if the digest is empty.
+
+        :return: True if no data has been ingested yet.
+        """
+        ...
+
     def merge(self, other: "TDigest") -> "TDigest":
         """
         Merge this TDigest with another, returning a new TDigest.

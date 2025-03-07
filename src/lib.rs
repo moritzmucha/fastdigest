@@ -85,6 +85,12 @@ impl PyTDigest {
         Ok(self.digest.centroids().len())
     }
 
+    /// Getter property: returns True if the digest is empty.
+    #[getter(is_empty)]
+    pub fn get_is_empty(&self) -> PyResult<bool> {
+        Ok(self.digest.is_empty())
+    }
+
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&mut self, other: &mut Self) -> PyResult<Self> {
         flush_cache(self);
