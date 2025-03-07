@@ -209,7 +209,7 @@ print(f"{digest}: {digest.n_values} values")
 ```
     TDigest(max_centroids=1000): 7 values
 
-**Note:** This writes to a stack-allocated buffer before merging, which can be significantly faster than `batch_update` if you have to iteratively add one observed value at a time, e.g. in streaming applications.
+**Note:** This writes to a stack-allocated buffer before merging, which is significantly faster than `batch_update` for rapid iteration with one value (or few values) at a time, e.g. in streaming applications.
 
 #### self.batch_update(values)
 
@@ -226,7 +226,7 @@ print(f"{digest}: {digest.n_values} values")
 ```
     TDigest(max_centroids=1000): 11 values
 
-**Note:** This directly performs a merge, which is faster than looping over `update` in most cases.
+**Note:** This directly performs a merge, which is faster than looping over `update` if you have the data in advance.
 
 ### Merging TDigest objects
 
