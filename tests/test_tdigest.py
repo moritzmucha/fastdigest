@@ -2,6 +2,7 @@ import pytest
 import math
 import random
 import pickle
+import collections.abc
 from copy import copy, deepcopy
 from typing import Callable, Sequence, List
 from fastdigest import TDigest
@@ -90,6 +91,14 @@ def test_is_empty(empty_digest: TDigest) -> None:
     assert d.is_empty
     d.update(1)
     assert not d.is_empty
+
+def test_centroids(empty_digest: TDigest) -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    centroids = d.centroids
+    assert isinstance(centroids, list) and len(centroids) == 3
+    assert all(isinstance(t, tuple) for t in centroids)
+    assert all(isinstance(v, float) for v in centroids[0])
+    assert isinstance(empty_digest.centroids, list)
 
 # -------------------------------------------------------------------
 # Merge tests (merge, merge_inplace, __add__, __iadd__)
@@ -304,10 +313,12 @@ def test_pickle_unpickle() -> None:
     assert d == unpickled
 
 # -------------------------------------------------------------------
-# Length, representation, and equality tests
+# Bool, length, representation, iteration, and equality tests
 # -------------------------------------------------------------------
-def test_len_repr() -> None:
+def test_bool_len_repr(empty_digest: TDigest) -> None:
+    assert not empty_digest
     d = TDigest.from_values([1.0, 2.0, 3.0])
+    assert d
     length = len(d)
     assert isinstance(length, int)
     assert length == d.n_centroids, (
@@ -322,6 +333,12 @@ def test_len_repr() -> None:
     assert rep == "TDigest(max_centroids=100)", (
         f"__repr__ output unexpected: {rep}"
     )
+
+def test_iter() -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    iterator = iter(d)
+    assert isinstance(iterator, collections.abc.Iterator)
+    assert list(iterator) == d.centroids
 
 def test_equality() -> None:
     d1 = TDigest.from_values([1.0, 2.0, 3.0])

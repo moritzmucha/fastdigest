@@ -1,4 +1,14 @@
-from typing import Dict, Iterable, List, Sequence, Tuple, Optional, Union, Any
+from typing import (
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Sequence,
+    Tuple,
+    Optional,
+    Union,
+    Any
+)
 
 class TDigest:
     def __init__(
@@ -64,9 +74,18 @@ class TDigest:
     @property
     def is_empty(self) -> bool:
         """
-        True if the digest is empty.
+        True if no data has been ingested yet.
 
-        :return: True if no data has been ingested yet.
+        :return: True if empty.
+        """
+        ...
+
+    @property
+    def centroids(self) -> List[Tuple[float, float]]:
+        """
+        List of centroids in the TDigest as tuples of (mean, weight).
+
+        :return: List of (mean, weight) tuples.
         """
         ...
 
@@ -294,11 +313,27 @@ class TDigest:
         """
         ...
 
+    def __bool__(self) -> bool:
+        """
+        Return True if the TDigest is not empty.
+
+        :return: True if not empty.
+        """
+        ...
+
     def __len__(self) -> int:
         """
         Return the number of centroids in the TDigest.
 
         :return: Number of centroids.
+        """
+        ...
+
+    def __iter__(self) -> Iterator[Tuple[float, float]]:
+        """
+        Return an iterator over the list of centroids.
+
+        :return: Iterator over centroid (mean, weight) tuples.
         """
         ...
 

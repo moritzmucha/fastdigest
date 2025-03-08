@@ -90,6 +90,22 @@ impl PyTDigest {
         Ok(self.digest.is_empty() && (self.i == 0))
     }
 
+    /// Getter property: returns the centroids as a list of tuples.
+    #[getter(centroids)]
+    pub fn get_centroids(&mut self, py: Python) -> PyResult<PyObject> {
+        flush_cache(self);
+
+        let centroid_list = PyList::empty(py);
+        for centroid in self.digest.centroids() {
+            let tuple = PyTuple::new(
+                py,
+                &[centroid.mean.into_inner(), centroid.weight.into_inner()]
+            )?;
+            centroid_list.append(tuple)?;
+        }
+        Ok(centroid_list.into())
+    }
+
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&mut self, other: &mut Self) -> PyResult<Self> {
         flush_cache(self);
@@ -432,9 +448,20 @@ impl PyTDigest {
         Ok(recon_tuple.into())
     }
 
+    /// Magic method: bool(TDigest) returns the negation of is_empty().
+    pub fn __bool__(&self) -> PyResult<bool> {
+        self.get_is_empty().map(|empty| !empty)
+    }
+
     /// Magic method: len(TDigest) returns the number of centroids.
     pub fn __len__(&mut self) -> PyResult<usize> {
         self.get_n_centroids()
+    }
+
+    // Magic method: returns an iterator over the list of centroids.
+    pub fn __iter__(&mut self, py: Python) -> PyResult<PyObject> {
+        let centroid_list = self.get_centroids(py)?;
+        centroid_list.call_method0(py, "__iter__")
     }
 
     /// Magic method: repr/str(TDigest) returns a string representation.
