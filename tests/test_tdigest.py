@@ -33,7 +33,6 @@ def sample_values() -> List[int]:
 def test_init() -> None:
     d = TDigest()
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
-    assert d.is_empty
     assert d.n_values == 0
     assert d.n_centroids == 0
     d = TDigest(max_centroids=3)
@@ -49,7 +48,6 @@ def test_init() -> None:
 def test_from_values(values: Sequence[int]) -> None:
     d = TDigest.from_values(values)
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
-    assert not d.is_empty
     assert d.n_values == len(values)
     assert d.n_centroids == len(values)
 
@@ -78,8 +76,20 @@ def test_n_values_and_n_centroids(empty_digest: TDigest) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     assert isinstance(d.n_values, int) and d.n_values == 3
     assert isinstance(d.n_centroids, int) and d.n_centroids == 3
-    assert empty_digest.n_values == 0
-    assert empty_digest.n_centroids == 0
+    d = empty_digest
+    assert d.n_values == 0
+    assert d.n_centroids == 0
+    d.update(1)
+    assert d.n_values == 1
+    assert d.n_centroids == 1
+
+def test_is_empty(empty_digest: TDigest) -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    assert not d.is_empty
+    d = empty_digest
+    assert d.is_empty
+    d.update(1)
+    assert not d.is_empty
 
 # -------------------------------------------------------------------
 # Merge tests (merge, merge_inplace, __add__, __iadd__)
