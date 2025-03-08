@@ -73,9 +73,8 @@ impl PyTDigest {
 
     /// Getter property: returns the total number of data points ingested.
     #[getter(n_values)]
-    pub fn get_n_values(&mut self) -> PyResult<u64> {
-        flush_cache(self);
-        Ok(self.digest.count().round() as u64)
+    pub fn get_n_values(&self) -> PyResult<u64> {
+        Ok(self.digest.count().round() as u64 + self.i as u64)
     }
 
     /// Getter property: returns the number of centroids.
@@ -88,7 +87,7 @@ impl PyTDigest {
     /// Getter property: returns True if the digest is empty.
     #[getter(is_empty)]
     pub fn get_is_empty(&self) -> PyResult<bool> {
-        Ok(self.digest.is_empty())
+        Ok(self.digest.is_empty() && (self.i == 0))
     }
 
     /// Merges this digest with another, returning a new TDigest.
