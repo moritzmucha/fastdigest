@@ -21,7 +21,7 @@ class TDigest:
         :param max_centroids:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
-            cost of some accuracy. Default is 1000.
+            cost of some accuracy. 0 disables compression. Default is 1000.
         """
         ...
 
@@ -37,7 +37,7 @@ class TDigest:
         :param max_centroids:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
-            cost of some accuracy. Default is 1000.
+            cost of some accuracy. 0 disables compression. Default is 1000.
         """
         ...
 

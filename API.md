@@ -8,13 +8,13 @@
   - [self.percentile(p)](#selfpercentilep)
   - [self.median()](#selfmedian)
   - [self.iqr()](#selfiqr)
-  - [self.min()](#selfmin)
-  - [self.max()](#selfmax)
   - [self.cdf(x)](#selfcdfx)
   - [self.probability(x1, x2)](#selfprobabilityx1-x2)
   - [self.sum()](#selfsum)
   - [self.mean()](#selfmean)
   - [self.trimmed_mean(q1, q2)](#selftrimmed_meanq1-q2)
+  - [self.min()](#selfmin)
+  - [self.max()](#selfmax)
 - [Updating a TDigest](#updating-a-tdigest)
   - [self.update(value)](#selfupdatevalue)
   - [self.batch_update(values)](#selfbatch_updatevalues)
@@ -26,9 +26,11 @@
   - [self.to_dict()](#selfto_dict)
   - [TDigest.from_dict(tdigest_dict)](#tdigestfrom_dicttdigest_dict)
 - [Other methods and properties](#other-methods-and-properties)
-  - [self.n_values](#selfn_values)
-  - [self.n_centroids](#selfn_centroids)
+  - [self.centroids](#selfcentroids)
+  - [self.is_empty](#selfis_empty)
   - [self.max_centroids](#selfmax_centroids)
+  - [self.n_centroids](#selfn_centroids)
+  - [self.n_values](#selfn_values)
   - [Magic methods](#magic-methods)
 
 ### Initialization
@@ -45,7 +47,9 @@ digest
 ```
     TDigest(max_centroids=1000)
 
-**Note:** The `max_centroids` parameter controls how big the data structure is allowed to get. A lower value enables a smaller memory footprint and faster computation speed at the cost of some accuracy. The default value of 1000 offers a great balance.
+**Note:** The `max_centroids` parameter controls how large the data structure is allowed to grow. A lower value means more compression, enabling a smaller memory footprint and faster computation speed at the cost of some accuracy. The default value of 1000 offers a great balance.
+
+Setting `max_centroids` to 0 disables compression entirely. This will incur a significant performance cost on all operations and is not recommended.
 
 #### TDigest.from_values(values)
 
@@ -112,24 +116,6 @@ print(f"IQR: {digest.iqr():.3f}")
 ```
     IQR: 1.334
 
-#### self.min()
-
-Return the lowest ingested value. This is an exact value.
-
-```python
-print(f"Minimum: {digest.min():+.3f}")
-```
-    Minimum: -3.545
-
-#### self.max()
-
-Return the highest ingested value. This is an exact value.
-
-```python
-print(f"Maximum: {digest.max():+.3f}")
-```
-    Maximum: +4.615
-
 #### self.cdf(x)
 
 Estimate the relative rank (cumulative probability) of the value `x`.
@@ -194,6 +180,24 @@ print(f"Trimmed mean: {trimmed_mean}")
 ```
             Mean: 9095.0
     Trimmed mean: 5.0
+
+#### self.min()
+
+Return the lowest ingested value. This is an exact value.
+
+```python
+print(f"Minimum: {digest.min():+.3f}")
+```
+    Minimum: -3.545
+
+#### self.max()
+
+Return the highest ingested value. This is an exact value.
+
+```python
+print(f"Maximum: {digest.max():+.3f}")
+```
+    Maximum: +4.615
 
 ### Updating a TDigest
 
@@ -283,14 +287,7 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 ```
     TDigest(max_centroids=30): 30 centroids from 100 values
 
-**Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the `max_centroids` parameter for the new instance is automatically determined as the maximum of the input parameters. Otherwise, the specified value is used instead:
-
-```python
-merged = merge_all(partial_digests, max_centroids=1000)
-
-print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
-```
-    TDigest(max_centroids=1000): 100 centroids from 100 values
+**Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the `max_centroids` parameter for the new instance is automatically determined as the maximum of the input parameters. Otherwise, the specified value is used instead.
 
 ### Dict conversion
 
@@ -341,30 +338,32 @@ print(f"{digest}: {digest.n_values} values")
 
 ### Other methods and properties
 
+#### self.centroids
+
+Returns the centroids as a list of (mean, weight) tuples.
+
 #### self.is_empty
 
 Returns `True` if no data has been ingested yet.
 
-#### self.n_values
+#### self.max_centroids
 
-Returns the total number of values ingested.
+Returns the `max_centroids` parameter of the instance. Can also be used to change it.
 
 #### self.n_centroids
 
 Returns the number of centroids in the digest.
 
-#### self.max_centroids
+#### self.n_values
 
-Returns the `max_centroids` parameter of the instance. Can also be used to change the parameter.
+Returns the total number of values ingested.
 
 #### Magic methods
 
-- `digest1 == digest2`: returns `True` if both instances have identical centroids (within f64 accuracy) and the same `max_centroids` parameter
-
+- `digest1 == digest2`: returns `True` if both instances have identical centroids and parameters (within f64 accuracy)
 - `self + other`: alias for `self.merge(other)`
-
 - `self += other`: alias for `self.merge_inplace(other)`
-
+- `bool(digest)`: alias for `not digest.is_empty`
 - `len(digest)`: alias for `digest.n_centroids`
-
+- `iter(digest)`: returns an iterator over `digest.centroids`
 - `repr(digest)`, `str(digest)`: returns a string representation
