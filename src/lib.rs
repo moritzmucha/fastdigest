@@ -92,7 +92,7 @@ impl PyTDigest {
 
     /// Getter property: returns the centroids as a list of tuples.
     #[getter(centroids)]
-    pub fn get_centroids(&mut self, py: Python) -> PyResult<PyObject> {
+    pub fn get_centroids(&mut self, py: Python) -> PyResult<Py<PyAny>> {
         flush_cache(self);
 
         let centroid_list = PyList::empty(py);
@@ -317,7 +317,7 @@ impl PyTDigest {
     ///
     /// The dict contains a key "centroids" mapping to a list of dicts,
     /// each with keys "m" (mean) and "c" (weight or count).
-    pub fn to_dict(&mut self, py: Python) -> PyResult<PyObject> {
+    pub fn to_dict(&mut self, py: Python) -> PyResult<Py<PyAny>> {
         flush_cache(self);
 
         let dict = PyDict::new(py);
@@ -436,7 +436,7 @@ impl PyTDigest {
     /// Returns a tuple (callable, args) so that pickle can reconstruct
     /// the object via:
     ///     TDigest.from_dict(state)
-    pub fn __reduce__(&mut self, py: Python) -> PyResult<PyObject> {
+    pub fn __reduce__(&mut self, py: Python) -> PyResult<Py<PyAny>> {
         // Get the dict state using to_dict.
         let state = self.to_dict(py)?;
         // Retrieve the class type from the Python interpreter.
@@ -459,7 +459,7 @@ impl PyTDigest {
     }
 
     // Magic method: returns an iterator over the list of centroids.
-    pub fn __iter__(&mut self, py: Python) -> PyResult<PyObject> {
+    pub fn __iter__(&mut self, py: Python) -> PyResult<Py<PyAny>> {
         let centroid_list = self.get_centroids(py)?;
         centroid_list.call_method0(py, "__iter__")
     }
