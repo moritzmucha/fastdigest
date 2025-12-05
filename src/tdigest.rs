@@ -292,17 +292,13 @@ impl TDigest {
         while iter_centroids.peek().is_some()
             || iter_sorted_values.peek().is_some()
         {
-            let next: Centroid = if let Some(c) = iter_centroids.peek()
-            {
+            let next: Centroid = if let Some(c) = iter_centroids.peek() {
                 if iter_sorted_values.peek().is_none()
                     || c.mean() < **iter_sorted_values.peek().unwrap()
                 {
                     iter_centroids.next().unwrap().clone()
                 } else {
-                    Centroid::new(
-                        *iter_sorted_values.next().unwrap(),
-                        1.0,
-                    )
+                    Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
                 }
             } else {
                 Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
@@ -438,12 +434,11 @@ impl TDigest {
                 if i + digests_per_block < starts.len() {
                     let first = starts[i];
                     let middle = starts[i + digests_per_block];
-                    let last =
-                        if i + 2 * digests_per_block < starts.len() {
-                            starts[i + 2 * digests_per_block]
-                        } else {
-                            centroids.len()
-                        };
+                    let last = if i + 2 * digests_per_block < starts.len() {
+                        starts[i + 2 * digests_per_block]
+                    } else {
+                        centroids.len()
+                    };
 
                     debug_assert!(first <= middle && middle <= last);
                     Self::external_merge(&mut centroids, first, middle, last);
@@ -551,11 +546,7 @@ impl TDigest {
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
     pub fn estimate_rank(&self, x: f64) -> f64 {
         if self.centroids.len() == 1 {
-            match self.centroids[0]
-                .mean
-                .into_inner()
-                .partial_cmp(&x)
-                .unwrap()
+            match self.centroids[0].mean.into_inner().partial_cmp(&x).unwrap()
             {
                 Ordering::Less => return 1.0,
                 Ordering::Equal => return 0.5,

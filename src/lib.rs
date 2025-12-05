@@ -99,7 +99,7 @@ impl PyTDigest {
         for centroid in self.digest.centroids() {
             let tuple = PyTuple::new(
                 py,
-                &[centroid.mean.into_inner(), centroid.weight.into_inner()]
+                &[centroid.mean.into_inner(), centroid.weight.into_inner()],
             )?;
             centroid_list.append(tuple)?;
         }
@@ -385,20 +385,18 @@ impl PyTDigest {
             };
 
         // Check if the "min" key exists
-        let min: f64 =
-            match tdigest_dict.get_item("min")? {
-                Some(obj) => obj.extract()?,
-                // If missing or null, take the lowest centroid.
-                _ => min,
-            };
+        let min: f64 = match tdigest_dict.get_item("min")? {
+            Some(obj) => obj.extract()?,
+            // If missing or null, take the lowest centroid.
+            _ => min,
+        };
 
         // Check if the "max" key exists
-        let max: f64 =
-            match tdigest_dict.get_item("max")? {
-                Some(obj) => obj.extract()?,
-                // If missing or null, take the highest centroid.
-                _ => max,
-            };
+        let max: f64 = match tdigest_dict.get_item("max")? {
+            Some(obj) => obj.extract()?,
+            // If missing or null, take the highest centroid.
+            _ => max,
+        };
 
         let digest = if !centroids.is_empty() {
             TDigest::new(centroids, sum, count, max, min, max_centroids)
@@ -469,7 +467,7 @@ impl PyTDigest {
         Ok(format!("TDigest(max_centroids={})", self.digest.max_size()))
     }
 
-    /// Magic method: enables equality checking (==)
+    /// Magic method: enables equality checking (==).
     pub fn __eq__(&mut self, other: &mut Self) -> PyResult<bool> {
         flush_cache(self);
         flush_cache(other);
@@ -492,7 +490,7 @@ impl PyTDigest {
         Ok(true)
     }
 
-    /// Magic method: enables inequality checking (!=)
+    /// Magic method: enables inequality checking (!=).
     pub fn __ne__(&mut self, other: &mut Self) -> PyResult<bool> {
         self.__eq__(other).map(|eq| !eq)
     }
@@ -575,7 +573,7 @@ fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
         && (c1.weight - c2.weight).abs() < f64::EPSILON
 }
 
-/// The Python module definition.
+/// Python module definition
 #[pymodule]
 fn fastdigest(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTDigest>()?;
