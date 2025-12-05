@@ -26,12 +26,12 @@
 
 ## Features
 
-- **Online statistics**: Compute highly accurate estimates of quantiles, the CDF, and many derived quantities such as the (trimmed) mean.
+- **Online statistics**: Compute highly accurate estimates of quantiles, the CDF, and derived quantities such as the (trimmed) mean.
 - **Updating**: Update a t-digest incrementally with streaming data or batches of large datasets.
 - **Merging**: Merge many t-digests into one, enabling parallel compute operations such as map-reduce.
 - **Serialization**: Use the `to_dict`/`from_dict` methods or the `pickle` module for serialization.
 - **Easy API**: The *fastDigest* API is designed to be intuitive and to keep high overlap with popular libraries.
-- **Blazing fast**: Thanks to its Rust backbone, this module is hundreds of times faster than other Python implementations.
+- **Blazing fast**: Thanks to its Rust backbone, this module is up to hundreds of times faster than other Python implementations.
 
 ## Installation
 
@@ -55,7 +55,7 @@ To build and install *fastDigest* from source, you will need Rust and *maturin*.
 pip install maturin
 ```
 
-3. Build and install the package:
+3. `git clone` or download and extract this repository, open a terminal in its root directory, then build and install the package:
 
 ```bash
 maturin build --release
@@ -64,11 +64,11 @@ pip install target/wheels/fastdigest-0.8.4-<platform-tag>.whl
 
 ## Usage
 
-The following examples give you a quick start. See the [API reference](https://github.com/moritzmucha/fastdigest/blob/main/API.md) for the full documentation.
+The following examples are intended to give you a quick start. See the [API reference](https://github.com/moritzmucha/fastdigest/blob/main/API.md) for the full documentation.
 
 ### Initialization
 
-Simply call `TDigest()`, or use `TDigest.from_values` to create a digest directly from any sequence of numeric values:
+Simply call `TDigest()` to create a new instance, or use `TDigest.from_values` to directly create a digest of any sequence of numbers:
 
 ```python
 from fastdigest import TDigest
@@ -112,7 +112,7 @@ digest.batch_update([0, 1, 2])
 digest.update(3)
 ```
 
-Note that there can be significant performance differences between these methods depending on use-case.
+Note: These methods are *not* the same - they are optimized for different use-cases, and there can be significant performance differences.
 
 ### Merging TDigest objects
 
@@ -158,16 +158,16 @@ Dicts created by *tdigest* can also natively be used by *fastDigest*.
 
 ## Benchmarks
 
-Constructing a TDigest and estimating the median of 1,000,000 uniformly distributed random values (average of 10 consecutive runs):
+- *Task:* Construct a digest of 1,000,000 uniformly distributed random values and estimate their median (average of 10 consecutive runs).
+- *Test environment:* Python 3.12.12, MacBook Pro (M4 Pro), macOS 15.7.2 Sequoia
 
-| Library            | Time (ms) | Speedup         |
-|--------------------|-----------|-----------------|
-| tdigest            | ~12,800   | -               |
-| fastdigest         | ~32       | **400x** faster |
+| Library            | Time (ms) | Relative speed |
+|--------------------|-----------|----------------|
+| tdigest            | 9,773     | 1x             |
+| pytdigest          | 54        | 180x           |
+| **fastdigest**     | **20**    | **480x**       |
 
-*Environment*: Python 3.13.2, Fedora 41 (Workstation), AMD Ryzen 5 7600X
-
-If you want to try it yourself, install *fastDigest* as well as [*tdigest*](https://github.com/CamDavidsonPilon/tdigest) and run:
+If you want to try it yourself, install *fastDigest* (and optionally [*tdigest*](https://github.com/CamDavidsonPilon/tdigest) and/or [*pytdigest*](https://github.com/protivinsky/pytdigest)) and run:
 
 ```bash
 python benchmark.py
