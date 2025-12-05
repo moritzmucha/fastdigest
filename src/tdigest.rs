@@ -1,3 +1,5 @@
+//! Backend by Paul Meng (https://github.com/MnO2/t-digest)
+//!
 //! T-Digest algorithm in rust
 //!
 //! ## Installation
