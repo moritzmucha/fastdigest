@@ -40,8 +40,14 @@ def test_init() -> None:
     assert d.n_centroids == 0
     d = TDigest(max_centroids=3)
     assert d.max_centroids == 3
+    d = TDigest(max_centroids=0)
+    assert d.max_centroids == 0
     with pytest.raises(TypeError):
         TDigest([1, 2, 3])
+    with pytest.raises(TypeError):
+        TDigest(10.0)
+    with pytest.raises(ValueError):
+        TDigest(-1)
 
 
 @pytest.mark.parametrize(
@@ -57,14 +63,14 @@ def test_from_values(values: Sequence[int]) -> None:
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
     assert d.n_values == len(values)
     assert d.n_centroids == len(values)
-
     d = TDigest.from_values(values, max_centroids=3)
     assert d.max_centroids == 3
     assert d.n_values == len(values)
     assert d.n_centroids == 3
-
     d = TDigest.from_values([])
     assert d == TDigest()
+    with pytest.raises(ValueError):
+        TDigest.from_values(values, max_centroids=-1)
 
 
 def test_max_centroids(sample_values: Sequence[int], empty_digest: TDigest) -> None:
@@ -75,8 +81,10 @@ def test_max_centroids(sample_values: Sequence[int], empty_digest: TDigest) -> N
     assert empty_digest.max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest(3)
     assert d.max_centroids == 3
-    d.max_centroids = 10
-    assert d.max_centroids == 10
+    d.max_centroids = 0
+    assert d.max_centroids == 0
+    with pytest.raises(ValueError):
+        d.max_centroids = -1
 
 
 def test_n_values_and_n_centroids(empty_digest: TDigest) -> None:

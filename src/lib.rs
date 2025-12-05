@@ -29,8 +29,13 @@ impl Default for PyTDigest {
 impl PyTDigest {
     /// Constructs a new empty TDigest instance.
     #[new]
-    #[pyo3(signature = (max_centroids=DEFAULT_MAX_CENTROIDS))]
-    pub fn new(max_centroids: usize) -> PyResult<Self> {
+    #[pyo3(signature = (max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
+    pub fn new(max_centroids: i64) -> PyResult<Self> {
+        let max_centroids = usize::try_from(max_centroids).map_err(|_| {
+            PyValueError::new_err(
+                "max_centroids must be a non-negative integer.",
+            )
+        })?;
         Ok(Self {
             digest: TDigest::new_with_size(max_centroids),
             ..Default::default()
@@ -39,11 +44,16 @@ impl PyTDigest {
 
     /// Constructs a new TDigest from a sequence of float values.
     #[staticmethod]
-    #[pyo3(signature = (values, max_centroids=DEFAULT_MAX_CENTROIDS))]
+    #[pyo3(signature = (values, max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
     pub fn from_values(
         values: Vec<f64>,
-        max_centroids: usize,
+        max_centroids: i64,
     ) -> PyResult<Self> {
+        let max_centroids = usize::try_from(max_centroids).map_err(|_| {
+            PyValueError::new_err(
+                "max_centroids must be a non-negative integer.",
+            )
+        })?;
         let digest = TDigest::new_with_size(max_centroids);
         if values.is_empty() {
             Ok(Self {
@@ -67,8 +77,14 @@ impl PyTDigest {
 
     /// Setter property: sets the max_centroids parameter.
     #[setter(max_centroids)]
-    pub fn set_max_centroids(&mut self, max_centroids: usize) {
+    pub fn set_max_centroids(&mut self, max_centroids: i64) -> PyResult<()> {
+        let max_centroids = usize::try_from(max_centroids).map_err(|_| {
+            PyValueError::new_err(
+                "max_centroids must be a non-negative integer.",
+            )
+        })?;
         self.digest.set_max_size(max_centroids);
+        Ok(())
     }
 
     /// Getter property: returns the total number of data points ingested.
