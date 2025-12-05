@@ -26,6 +26,7 @@
   - [self.to_dict()](#selfto_dict)
   - [TDigest.from_dict(tdigest_dict)](#tdigestfrom_dicttdigest_dict)
 - [Other methods and properties](#other-methods-and-properties)
+  - [self.copy()](#selfcopy)
   - [self.centroids](#selfcentroids)
   - [self.is_empty](#selfis_empty)
   - [self.max_centroids](#selfmax_centroids)
@@ -338,6 +339,10 @@ print(f"{digest}: {digest.n_values} values")
 
 ### Other methods and properties
 
+#### self.copy()
+
+Creates a copy of the instance.
+
 #### self.centroids
 
 Returns the centroids as a list of (mean, weight) tuples.
@@ -360,10 +365,11 @@ Returns the total number of values ingested.
 
 #### Magic methods
 
-- `digest1 == digest2`: returns `True` if both instances have identical centroids and parameters (within f64 accuracy)
+- `digest1 == digest2`: returns `True` if both instances have identical centroids and parameters (within f64 precision)
 - `self + other`: alias for `self.merge(other)`
 - `self += other`: alias for `self.merge_inplace(other)`
 - `bool(digest)`: alias for `not digest.is_empty`
 - `len(digest)`: alias for `digest.n_centroids`
 - `iter(digest)`: returns an iterator over `digest.centroids`
-- `repr(digest)`, `str(digest)`: returns a string representation
+- `copy(digest)`, `deepcopy(digest)`: alias for `digest.copy()`
+- `str(digest)`, `repr(digest)`: returns a string representation
