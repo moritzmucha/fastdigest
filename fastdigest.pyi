@@ -1,22 +1,18 @@
-from typing import (
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Sequence,
-    Tuple,
-    Optional,
-    Union,
-    Any
-)
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 class TDigest:
-    def __init__(
-            self,
-            max_centroids: int = 1000
-        ) -> None:
+    """
+    Class containing the t-digest data structure.
+
+    :param max_centroids:
+        Number of centroids to maintain. A lower value enables a
+        smaller memory footprint and faster computation speed at the
+        cost of some accuracy. 0 disables compression. Default is 1000.
+    """
+
+    def __init__(self, max_centroids: int = 1000) -> None:
         """
-        Initialize an empty TDigest instance.
+        Create an empty new TDigest instance.
 
         :param max_centroids:
             Number of centroids to maintain. A lower value enables a
@@ -27,11 +23,10 @@ class TDigest:
 
     @staticmethod
     def from_values(
-            values: Sequence[Union[float, int]],
-            max_centroids: int = 1000
-        ) -> "TDigest":
+        values: Sequence[Union[float, int]], max_centroids: int = 1000
+    ) -> "TDigest":
         """
-        Initialize a TDigest with a sequence of numerical values.
+        Create a new TDigest of a sequence of numerical values.
 
         :param values: Sequence of float or int values.
         :param max_centroids:
@@ -44,19 +39,19 @@ class TDigest:
     @property
     def max_centroids(self) -> int:
         """
-        The maximum number of centroids instance parameter.
-        
+        Instance parameter controlling the maximum size (number of centroids)
+        of the data structure.
+
         :return: Maximum number of centroids parameter.
         """
         ...
 
     @max_centroids.setter
     def max_centroids(self, value: int) -> None: ...
-
     @property
     def n_values(self) -> int:
         """
-        Total number of data points ingested.
+        Total number of data points fed into this TDigest.
 
         :return: Sum of all centroid weights, rounded to the nearest integer.
         """
@@ -65,7 +60,7 @@ class TDigest:
     @property
     def n_centroids(self) -> int:
         """
-        Number of centroids in the TDigest.
+        Number of centroids currently in this TDigest.
 
         :return: Number of centroids.
         """
@@ -91,7 +86,7 @@ class TDigest:
 
     def merge(self, other: "TDigest") -> "TDigest":
         """
-        Merge this TDigest with another, returning a new TDigest.
+        Merge this TDigest with another, returning a new instance.
 
         Equivalent to the `+` operator.
 
@@ -107,7 +102,7 @@ class TDigest:
         """
         Merge another TDigest into `self`, modifying the calling object
         in-place.
-        
+
         Equivalent to the `+=` operator.
 
         :param other: Other TDigest instance.
@@ -372,7 +367,7 @@ class TDigest:
     def __add__(self, other: "TDigest") -> "TDigest":
         """
         Merge this TDigest with another, returning a new TDigest.
-        
+
         Equivalent to `self.merge(other)`, but using the `+` operator.
 
         :param other: Other TDigest instance.
@@ -383,7 +378,7 @@ class TDigest:
     def __iadd__(self, other: "TDigest") -> "TDigest":
         """
         Merge another TDigest into this one in-place.
-        
+
         Equivalent to `self.merge_inplace(other)`, but using the `+=` operator.
 
         :param other: Other TDigest instance.
@@ -391,9 +386,8 @@ class TDigest:
         ...
 
 def merge_all(
-        digests: Iterable[TDigest],
-        max_centroids: Optional[int] = None
-    ) -> TDigest:
+    digests: Iterable[TDigest], max_centroids: Optional[int] = None
+) -> TDigest:
     """
     Merge an iterable of TDigest instances into a single TDigest.
 
