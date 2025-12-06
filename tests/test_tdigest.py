@@ -310,6 +310,9 @@ def test_to_from_dict() -> None:
     new_d = TDigest.from_dict(d_dict)
     assert isinstance(new_d, TDigest)
     assert d == new_d
+    d_dict["max_centroids"] = -1
+    with pytest.raises(ValueError):
+        TDigest.from_dict(d_dict)
 
 
 @pytest.mark.parametrize(

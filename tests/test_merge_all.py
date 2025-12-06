@@ -1,3 +1,4 @@
+import pytest
 from fastdigest import TDigest, merge_all
 from utils import calculate_sample_quantiles, check_sample_quantiles
 
@@ -34,3 +35,7 @@ def test_merge_all() -> None:
     assert merged_empty == TDigest(max_centroids=9)
     merged_empty = merge_all([], max_centroids=3)
     assert merged_empty == TDigest(max_centroids=3)
+    with pytest.raises(TypeError):
+        merge_all(empty_digests, max_centroids=10.0)
+    with pytest.raises(ValueError):
+        merge_all(empty_digests, max_centroids=-1)

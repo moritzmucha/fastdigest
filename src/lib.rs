@@ -6,6 +6,7 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 use tdigest::{Centroid, TDigest, DEFAULT_MAX_CENTROIDS};
 
 const CACHE_SIZE: u8 = 255;
+const MAX_MAX_CENTROIDS: i64 = (isize::MAX / 16) as i64;
 
 #[pyclass(name = "TDigest", module = "fastdigest")]
 #[derive(Clone)]
@@ -31,13 +32,9 @@ impl PyTDigest {
     #[new]
     #[pyo3(signature = (max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
     pub fn new(max_centroids: i64) -> PyResult<Self> {
-        let max_centroids = usize::try_from(max_centroids).map_err(|_| {
-            PyValueError::new_err(
-                "max_centroids must be a non-negative integer.",
-            )
-        })?;
+        let max_cent_valid = validate_max_centroids(max_centroids)?;
         Ok(Self {
-            digest: TDigest::new_with_size(max_centroids),
+            digest: TDigest::new_with_size(max_cent_valid),
             ..Default::default()
         })
     }
@@ -49,12 +46,8 @@ impl PyTDigest {
         values: Vec<f64>,
         max_centroids: i64,
     ) -> PyResult<Self> {
-        let max_centroids = usize::try_from(max_centroids).map_err(|_| {
-            PyValueError::new_err(
-                "max_centroids must be a non-negative integer.",
-            )
-        })?;
-        let digest = TDigest::new_with_size(max_centroids);
+        let max_cent_valid = validate_max_centroids(max_centroids)?;
+        let digest = TDigest::new_with_size(max_cent_valid);
         if values.is_empty() {
             Ok(Self {
                 digest,
@@ -78,12 +71,8 @@ impl PyTDigest {
     /// Setter property: sets the max_centroids parameter.
     #[setter(max_centroids)]
     pub fn set_max_centroids(&mut self, max_centroids: i64) -> PyResult<()> {
-        let max_centroids = usize::try_from(max_centroids).map_err(|_| {
-            PyValueError::new_err(
-                "max_centroids must be a non-negative integer.",
-            )
-        })?;
-        self.digest.set_max_size(max_centroids);
+        let max_cent_valid = validate_max_centroids(max_centroids)?;
+        self.digest.set_max_size(max_cent_valid);
         Ok(())
     }
 
@@ -395,10 +384,12 @@ impl PyTDigest {
         // Check if the "max_centroids" key exists
         let max_centroids: usize =
             match tdigest_dict.get_item("max_centroids")? {
-                Some(obj) => obj.extract()?,
+                Some(obj) => validate_max_centroids(
+                    obj.extract::<i64>()?
+                )?,
                 // If missing or null, set the default value.
                 _ => DEFAULT_MAX_CENTROIDS,
-            };
+        };
 
         // Check if the "min" key exists
         let min: f64 = match tdigest_dict.get_item("min")? {
@@ -527,7 +518,7 @@ impl PyTDigest {
 #[pyo3(signature = (digests, max_centroids=None))]
 pub fn merge_all(
     digests: &Bound<'_, PyAny>,
-    max_centroids: Option<usize>,
+    max_centroids: Option<i64>,
 ) -> PyResult<PyTDigest> {
     // Convert any iterable into a Vec<TDigest>
     let digests: Vec<TDigest> = digests
@@ -542,8 +533,14 @@ pub fn merge_all(
         Ok(py_tdigest.digest.clone())
     })
     .collect::<PyResult<Vec<_>>>()?;
-    
-    let merged = TDigest::merge_digests(digests, max_centroids);
+
+    // Safely convert Python integer
+    let max_cent_valid: Option<usize> = match max_centroids {
+        Some(v) => Some(validate_max_centroids(v)?),
+        None => None,
+    };
+
+    let merged = TDigest::merge_digests(digests, max_cent_valid);
     Ok(PyTDigest {
         digest: merged,
         ..Default::default()
@@ -587,6 +584,21 @@ fn tdigest_fields_equal(d1: &TDigest, d2: &TDigest) -> bool {
 fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
     (c1.mean - c2.mean).abs() < f64::EPSILON
         && (c1.weight - c2.weight).abs() < f64::EPSILON
+}
+
+/// Helper function to safely convert max_centroids to usize
+fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
+    if max_centroids < 0 {
+        return Err(PyValueError::new_err(
+            "max_centroids must be a non-negative integer.",
+        ));
+    }
+    if max_centroids > MAX_MAX_CENTROIDS {
+        return Err(PyValueError::new_err(
+            "max_centroids exceeds the platform limit.",
+        ));
+    }
+    Ok(max_centroids as usize)
 }
 
 /// Python module definition
