@@ -5,15 +5,19 @@ from argparse import ArgumentParser
 from typing import Sequence, Tuple, Type, TypeVar, Union
 from fastdigest import TDigest
 
+T = TypeVar("T")
+
+
 # Constants:
-MAX_CENTROIDS = 1000          # should be same as fastdigest's default
+MAX_CENTROIDS = 1000  # should be same as fastdigest's default
 TIME_UNITS_PER_SECOND = 1000  # granularity of time measurements
-TIME_UNIT = "ms"              # for console output
+TIME_UNIT = "ms"  # for console output
 
 # Run parameter defaults:
-P = 50         # percentile to estimate
+P = 50  # percentile to estimate
 N = 1_000_000  # size of the dataset
-R = 1          # number of benchmark runs
+R = 1  # number of benchmark runs
+
 
 try:
     from tdigest import TDigest as LegacyTDigest
@@ -27,7 +31,6 @@ except ImportError:
     PyTDigest = None
 
 
-T = TypeVar("T")
 def compute(
     cls: Type[T],
     dataset: Sequence[float],
@@ -47,7 +50,9 @@ def compute(
 
 
 def compute_pytd(
-    dataset: Sequence[float], incremental: bool = False, p: Union[float, int] = P
+    dataset: Sequence[float],
+    incremental: bool = False,
+    p: Union[float, int] = P,
 ) -> Tuple[float, float]:
     dataset = np.array(dataset)
     start = time.perf_counter()
@@ -118,7 +123,10 @@ def main():
         "-i",
         "--incremental",
         action="store_true",
-        help="merge one value at a time, using update() instead of batch_update()",
+        help=(
+            "merge one value at a time, using update() "
+            "instead of batch_update()"
+        ),
     )
     parser.add_argument(
         "-p",

@@ -63,7 +63,9 @@ def check_sample_quantiles(
 
 
 def check_tdigest_equality(orig: TDigest, new: TDigest) -> None:
-    assert isinstance(new, TDigest), f"Expected TDigest, got {type(new).__name__}"
+    assert isinstance(new, TDigest), (
+        f"Expected TDigest, got {type(new).__name__}"
+    )
     assert orig == new, "Equality check failed"
     expected = [orig.quantile(q) for q in SAMPLE_QUANTILES]
     check_sample_quantiles(new, expected)

@@ -64,3 +64,7 @@ include = [
   "API.md"
 ]
 bindings = "pyo3"
+
+[tool.ruff]
+line-length = 80
+target-version = "py37"

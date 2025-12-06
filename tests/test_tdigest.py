@@ -73,7 +73,9 @@ def test_from_values(values: Sequence[int]) -> None:
         TDigest.from_values(values, max_centroids=-1)
 
 
-def test_max_centroids(sample_values: Sequence[int], empty_digest: TDigest) -> None:
+def test_max_centroids(
+    sample_values: Sequence[int], empty_digest: TDigest
+) -> None:
     d = TDigest.from_values(sample_values)
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest.from_values(sample_values, max_centroids=3)
@@ -127,7 +129,9 @@ def test_centroids(empty_digest: TDigest) -> None:
         lambda d1, d2: d1 + d2,
     ],
 )
-def test_merge_operations(merge_func: Callable[[TDigest, TDigest], TDigest]) -> None:
+def test_merge_operations(
+    merge_func: Callable[[TDigest, TDigest], TDigest],
+) -> None:
     d1 = TDigest.from_values(range(1, 51))
     d2 = TDigest.from_values(range(51, 101))
     expected = calculate_sample_quantiles(range(1, 101))
@@ -364,7 +368,9 @@ def test_bool_len_repr(empty_digest: TDigest) -> None:
     )
     d = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=100)
     rep = repr(d)
-    assert rep == "TDigest(max_centroids=100)", f"__repr__ output unexpected: {rep}"
+    assert rep == "TDigest(max_centroids=100)", (
+        f"__repr__ output unexpected: {rep}"
+    )
 
 
 def test_iter() -> None:
