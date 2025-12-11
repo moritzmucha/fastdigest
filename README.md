@@ -74,7 +74,7 @@ Simply call `TDigest()` to create a new instance, or use `TDigest.from_values` t
 from fastdigest import TDigest
 
 digest = TDigest()
-digest = TDigest.from_values([1.42, 2.71, 3.14])
+digest = TDigest.from_values([2.71, 3.14, 1.42])
 ```
 
 ### Mathematical functions
@@ -82,7 +82,7 @@ digest = TDigest.from_values([1.42, 2.71, 3.14])
 Estimate the value at the rank `q` using `quantile(q)`:
 
 ```python
-digest = TDigest.from_values(range(101))
+digest = TDigest.from_values(range(1001))
 print("99th percentile:", digest.quantile(0.99))
 ```
 
@@ -95,10 +95,10 @@ print("cdf(990) =", digest.cdf(990))
 Compute the arithmetic `mean`, or the `trimmed_mean` between two quantiles:
 
 ```python
-data = list(range(101))
-data[-1] = 100_000  # inserting an outlier
+data = list(range(11))  # numbers 1-10
+data[-1] = 100_000  # extreme outlier
 digest = TDigest.from_values(data)
-print(f"        Mean: {digest.mean():.1f}")
+print(f"        Mean: {digest.mean()}")
 print(f"Trimmed mean: {digest.trimmed_mean(0.1, 0.9)}")
 ```
 

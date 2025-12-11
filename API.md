@@ -59,7 +59,7 @@ Static method to initialize a TDigest directly from any sequence of numerical va
 ```python
 import numpy as np
 
-digest = TDigest.from_values([1.42, 2.71, 3.14])  # from list
+digest = TDigest.from_values([2.71, 3.14, 1.42])  # from list
 digest = TDigest.from_values((42,))               # from tuple
 digest = TDigest.from_values(range(101))          # from range
 
@@ -170,8 +170,8 @@ print(f"Mean value: {digest.mean()}")
 Estimate the truncated mean between the two quantiles `q1` and `q2`.
 
 ```python
-# inserting an outlier that we want to ignore
-data[-1] = 100_000
+data = list(range(11))
+data[-1] = 100_000  # extreme outlier
 digest = TDigest.from_values(data)
 mean = digest.mean()
 trimmed_mean = digest.trimmed_mean(0.1, 0.9)
