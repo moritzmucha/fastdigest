@@ -82,10 +82,13 @@ jobs:
         platform:
           - runner: windows-2025
             target: x64
+            artifact: windows-2025-x64
           - runner: windows-2022
             target: x86
+            artifact: windows-2022-x86
           - runner: windows-2025
             target: x86
+            artifact: windows-2025-x86
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -101,7 +104,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows-${{ matrix.platform.target }}
+          name: wheels-${{ matrix.platform.artifact }}
           path: dist
 
   macos:
