@@ -59,7 +59,7 @@ pip install maturin
 
 ```bash
 maturin build --release
-pip install target/wheels/fastdigest-0.9.1-<platform-tag>.whl
+pip install target/wheels/fastdigest-0.9.2-<platform-tag>.whl
 ```
 
 ## Usage
