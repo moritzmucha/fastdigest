@@ -205,9 +205,8 @@ impl TDigest {
 
 impl Default for TDigest {
     fn default() -> Self {
-        TDigest::new_with_size(DEFAULT_MAX_CENTROIDS).expect(
-            "default max size should be allocatable"
-        )
+        TDigest::new_with_size(DEFAULT_MAX_CENTROIDS)
+            .expect("default max size should be allocatable")
     }
 }
 
@@ -231,10 +230,8 @@ impl TDigest {
             .map(OrderedFloat::from)
             .collect();
         sorted_values.sort();
-        let sorted_values = sorted_values
-            .into_iter()
-            .map(|f| f.into_inner())
-            .collect();
+        let sorted_values =
+            sorted_values.into_iter().map(|f| f.into_inner()).collect();
 
         self.merge_sorted(sorted_values)
     }
@@ -251,10 +248,8 @@ impl TDigest {
         result.count =
             OrderedFloat::from(self.count() + (sorted_values.len() as f64));
 
-        let maybe_min =
-            OrderedFloat::from(*sorted_values.first().unwrap());
-        let maybe_max =
-            OrderedFloat::from(*sorted_values.last().unwrap());
+        let maybe_min = OrderedFloat::from(*sorted_values.first().unwrap());
+        let maybe_max = OrderedFloat::from(*sorted_values.last().unwrap());
 
         if self.count() > 0.0 {
             result.min = std::cmp::min(self.min, maybe_min);
@@ -273,13 +268,10 @@ impl TDigest {
                 * result.count.into_inner();
         k_limit += 1.0;
 
-        let mut iter_centroids =
-            self.centroids.iter().peekable();
-        let mut iter_sorted_values =
-            sorted_values.iter().peekable();
+        let mut iter_centroids = self.centroids.iter().peekable();
+        let mut iter_sorted_values = sorted_values.iter().peekable();
 
-        let mut curr: Centroid = if let Some(c) = iter_centroids.peek()
-        {
+        let mut curr: Centroid = if let Some(c) = iter_centroids.peek() {
             let curr = **iter_sorted_values.peek().unwrap();
             if c.mean() < curr {
                 iter_centroids.next().unwrap().clone()
@@ -334,8 +326,7 @@ impl TDigest {
         }
 
         result.sum = OrderedFloat::from(
-            result.sum.into_inner()
-                + curr.add(sums_to_merge, weights_to_merge),
+            result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge),
         );
         compressed.push(curr);
         compressed.shrink_to_fit();
@@ -495,8 +486,7 @@ impl TDigest {
         }
 
         result.sum = OrderedFloat::from(
-            result.sum.into_inner()
-                + curr.add(sums_to_merge, weights_to_merge),
+            result.sum.into_inner() + curr.add(sums_to_merge, weights_to_merge),
         );
         compressed.push(curr.clone());
         compressed.shrink_to_fit();
@@ -524,10 +514,9 @@ impl TDigest {
 
         for (k, centroid) in self.centroids.iter().enumerate() {
             cum_left = cum_right;
-            cum_right =
-                (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
-                    / 2.0
-                    / (self.count() - 1.0);
+            cum_right = (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
+                / 2.0
+                / (self.count() - 1.0);
             cumulative += centroid.weight.into_inner();
 
             if cum_right >= q {
@@ -558,8 +547,7 @@ impl TDigest {
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
     pub fn estimate_rank(&self, x: f64) -> f64 {
         if self.centroids.len() == 1 {
-            match self.centroids[0].mean.into_inner().partial_cmp(&x).unwrap()
-            {
+            match self.centroids[0].mean.into_inner().partial_cmp(&x).unwrap() {
                 Ordering::Less => return 1.0,
                 Ordering::Equal => return 0.5,
                 Ordering::Greater => return 0.0,
@@ -573,10 +561,9 @@ impl TDigest {
 
         for (k, centroid) in self.centroids.iter().enumerate() {
             cum_left = cum_right;
-            cum_right =
-                (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
-                    / 2.0
-                    / (self.count() - 1.0);
+            cum_right = (2.0 * cumulative + centroid.weight.into_inner() - 1.0)
+                / 2.0
+                / (self.count() - 1.0);
             cumulative += centroid.weight.into_inner();
 
             if centroid.mean.into_inner() >= x {
