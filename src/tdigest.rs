@@ -33,6 +33,7 @@
 
 use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
+use std::collections::TryReserveError;
 
 pub const DEFAULT_MAX_CENTROIDS: usize = 1000;
 
@@ -108,15 +109,18 @@ pub struct TDigest {
 }
 
 impl TDigest {
-    pub fn new_with_size(max_size: usize) -> Self {
-        TDigest {
-            centroids: Vec::new(),
+    pub fn new_with_size(max_size: usize) -> Result<Self, TryReserveError> {
+        let mut centroids: Vec<Centroid> = Vec::new();
+        centroids.try_reserve_exact(max_size)?;
+
+        Ok(TDigest {
+            centroids,
             max_size,
             sum: OrderedFloat::from(0.0),
             count: OrderedFloat::from(0.0),
             max: OrderedFloat::from(std::f64::NAN),
             min: OrderedFloat::from(std::f64::NAN),
-        }
+        })
     }
 
     pub fn new(
@@ -126,21 +130,21 @@ impl TDigest {
         max: f64,
         min: f64,
         max_size: usize,
-    ) -> Self {
+    ) -> Result<Self, TryReserveError> {
         if centroids.len() <= max_size {
-            TDigest {
+            Ok(TDigest {
                 centroids,
                 max_size,
                 sum: OrderedFloat::from(sum),
                 count: OrderedFloat::from(count),
                 max: OrderedFloat::from(max),
                 min: OrderedFloat::from(min),
-            }
+            })
         } else {
             let sz = centroids.len();
             let digests: Vec<TDigest> = vec![
-                TDigest::new_with_size(max_size),
-                TDigest::new(centroids, sum, count, max, min, sz),
+                TDigest::new_with_size(max_size)?,
+                TDigest::new(centroids, sum, count, max, min, sz)?,
             ];
             Self::merge_digests(digests, Some(max_size))
         }
@@ -201,14 +205,9 @@ impl TDigest {
 
 impl Default for TDigest {
     fn default() -> Self {
-        TDigest {
-            centroids: Vec::new(),
-            max_size: DEFAULT_MAX_CENTROIDS,
-            sum: OrderedFloat::from(0.0),
-            count: OrderedFloat::from(0.0),
-            max: OrderedFloat::from(std::f64::NAN),
-            min: OrderedFloat::from(std::f64::NAN),
-        }
+        TDigest::new_with_size(DEFAULT_MAX_CENTROIDS).expect(
+            "default max size should be allocatable"
+        )
     }
 }
 
@@ -223,7 +222,10 @@ impl TDigest {
         }
     }
 
-    pub fn merge_unsorted(&self, unsorted_values: Vec<f64>) -> TDigest {
+    pub fn merge_unsorted(
+        &self,
+        unsorted_values: Vec<f64>,
+    ) -> Result<TDigest, TryReserveError> {
         let mut sorted_values: Vec<OrderedFloat<f64>> = unsorted_values
             .into_iter()
             .map(OrderedFloat::from)
@@ -237,12 +239,15 @@ impl TDigest {
         self.merge_sorted(sorted_values)
     }
 
-    pub fn merge_sorted(&self, sorted_values: Vec<f64>) -> TDigest {
+    pub fn merge_sorted(
+        &self,
+        sorted_values: Vec<f64>,
+    ) -> Result<TDigest, TryReserveError> {
         if sorted_values.is_empty() {
-            return self.clone();
+            return Ok(self.clone());
         }
 
-        let mut result = TDigest::new_with_size(self.max_size());
+        let mut result = TDigest::new_with_size(self.max_size())?;
         result.count =
             OrderedFloat::from(self.count() + (sorted_values.len() as f64));
 
@@ -259,7 +264,8 @@ impl TDigest {
             result.max = maybe_max;
         }
 
-        let mut compressed: Vec<Centroid> = Vec::with_capacity(self.max_size);
+        let mut compressed: Vec<Centroid> = Vec::new();
+        compressed.try_reserve_exact(self.max_size)?;
 
         let mut k_limit: f64 = 1.0;
         let mut q_limit_times_count: f64 =
@@ -336,7 +342,7 @@ impl TDigest {
         compressed.sort();
 
         result.centroids = compressed;
-        result
+        Ok(result)
     }
 
     fn external_merge(
@@ -344,8 +350,9 @@ impl TDigest {
         first: usize,
         middle: usize,
         last: usize,
-    ) {
-        let mut result: Vec<Centroid> = Vec::with_capacity(centroids.len());
+    ) -> Result<(), TryReserveError> {
+        let mut result: Vec<Centroid> = Vec::new();
+        result.try_reserve_exact(centroids.len())?;
 
         let mut i = first;
         let mut j = middle;
@@ -382,13 +389,15 @@ impl TDigest {
             centroids[i] = centroid;
             i += 1;
         }
+
+        Ok(())
     }
 
     // Merge multiple T-Digests
     pub fn merge_digests(
         digests: Vec<TDigest>,
         max_size: Option<usize>,
-    ) -> TDigest {
+    ) -> Result<TDigest, TryReserveError> {
         let max_size = if let Some(max) = max_size {
             max
         } else {
@@ -405,8 +414,10 @@ impl TDigest {
             return TDigest::new_with_size(max_size);
         }
 
-        let mut centroids: Vec<Centroid> = Vec::with_capacity(n_centroids);
-        let mut starts: Vec<usize> = Vec::with_capacity(digests.len());
+        let mut centroids: Vec<Centroid> = Vec::new();
+        centroids.try_reserve_exact(n_centroids)?;
+        let mut starts: Vec<usize> = Vec::new();
+        starts.try_reserve_exact(digests.len())?;
 
         let mut count: f64 = 0.0;
         let mut min = OrderedFloat::from(std::f64::INFINITY);
@@ -441,15 +452,16 @@ impl TDigest {
                     };
 
                     debug_assert!(first <= middle && middle <= last);
-                    Self::external_merge(&mut centroids, first, middle, last);
+                    Self::external_merge(&mut centroids, first, middle, last)?;
                 }
             }
 
             digests_per_block *= 2;
         }
 
-        let mut result = TDigest::new_with_size(max_size);
-        let mut compressed: Vec<Centroid> = Vec::with_capacity(max_size);
+        let mut result = TDigest::new_with_size(max_size)?;
+        let mut compressed: Vec<Centroid> = Vec::new();
+        compressed.try_reserve_exact(max_size)?;
 
         let mut k_limit: f64 = 1.0;
         let mut q_limit_times_count: f64 =
@@ -494,7 +506,7 @@ impl TDigest {
         result.min = min;
         result.max = max;
         result.centroids = compressed;
-        result
+        Ok(result)
     }
 
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)

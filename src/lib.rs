@@ -1,8 +1,9 @@
 mod tdigest;
 
-use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyKeyError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
+use std::collections::TryReserveError;
 use tdigest::{Centroid, TDigest, DEFAULT_MAX_CENTROIDS};
 
 const CACHE_SIZE: u8 = 255;
@@ -18,8 +19,12 @@ pub struct PyTDigest {
 
 impl Default for PyTDigest {
     fn default() -> Self {
+        let digest: TDigest =
+            TDigest::new_with_size(DEFAULT_MAX_CENTROIDS).expect(
+                "default max size should be allocatable"
+        );
         Self {
-            digest: TDigest::new_with_size(DEFAULT_MAX_CENTROIDS),
+            digest,
             cache: [0.0; CACHE_SIZE as usize],
             i: 0,
         }
@@ -33,8 +38,10 @@ impl PyTDigest {
     #[pyo3(signature = (max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
     pub fn new(max_centroids: i64) -> PyResult<Self> {
         let max_cent_valid = validate_max_centroids(max_centroids)?;
+        let digest =
+            TDigest::new_with_size(max_cent_valid).map_err(malloc_error)?;
         Ok(Self {
-            digest: TDigest::new_with_size(max_cent_valid),
+            digest,
             ..Default::default()
         })
     }
@@ -47,14 +54,16 @@ impl PyTDigest {
         max_centroids: i64,
     ) -> PyResult<Self> {
         let max_cent_valid = validate_max_centroids(max_centroids)?;
-        let digest = TDigest::new_with_size(max_cent_valid);
+        let digest =
+            TDigest::new_with_size(max_cent_valid).map_err(malloc_error)?;
         if values.is_empty() {
             Ok(Self {
                 digest,
                 ..Default::default()
             })
         } else {
-            let digest = digest.merge_unsorted(values);
+            let digest =
+                digest.merge_unsorted(values).map_err(malloc_error)?;
             Ok(Self {
                 digest,
                 ..Default::default()
@@ -85,7 +94,7 @@ impl PyTDigest {
     /// Getter property: returns the number of centroids.
     #[getter(n_centroids)]
     pub fn get_n_centroids(&mut self) -> PyResult<usize> {
-        flush_cache(self);
+        flush_cache(self)?;
         Ok(self.digest.centroids().len())
     }
 
@@ -98,7 +107,7 @@ impl PyTDigest {
     /// Getter property: returns the centroids as a list of tuples.
     #[getter(centroids)]
     pub fn get_centroids(&mut self, py: Python) -> PyResult<Py<PyAny>> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         let centroid_list = PyList::empty(py);
         for centroid in self.digest.centroids() {
@@ -113,12 +122,13 @@ impl PyTDigest {
 
     /// Merges this digest with another, returning a new TDigest.
     pub fn merge(&mut self, other: &mut Self) -> PyResult<Self> {
-        flush_cache(self);
-        flush_cache(other);
+        flush_cache(self)?;
+        flush_cache(other)?;
 
         let digests: Vec<TDigest> =
             vec![self.digest.clone(), other.digest.clone()];
-        let merged = TDigest::merge_digests(digests, None);
+        let merged =
+            TDigest::merge_digests(digests, None).map_err(malloc_error)?;
         Ok(Self {
             digest: merged,
             ..Default::default()
@@ -126,35 +136,40 @@ impl PyTDigest {
     }
 
     /// Merges this digest with another, modifying the current instance.
-    pub fn merge_inplace(&mut self, other: &mut Self) {
-        flush_cache(self);
-        flush_cache(other);
+    pub fn merge_inplace(&mut self, other: &mut Self) -> PyResult<()> {
+        flush_cache(self)?;
+        flush_cache(other)?;
 
         let digests: Vec<TDigest> =
             vec![self.digest.clone(), other.digest.clone()];
         self.digest =
-            TDigest::merge_digests(digests, Some(self.digest.max_size()));
+            TDigest::merge_digests(digests, Some(self.digest.max_size()))
+                .map_err(malloc_error)?;
+        Ok(())
     }
 
     /// Updates the digest (in-place) with a sequence of float values.
-    pub fn batch_update(&mut self, values: Vec<f64>) {
-        flush_cache(self);
+    pub fn batch_update(&mut self, values: Vec<f64>) -> PyResult<()> {
+        flush_cache(self)?;
 
         if values.is_empty() {
-            return;
+            return Ok(());
         }
-        self.digest = self.digest.merge_unsorted(values);
+        self.digest =
+            self.digest.merge_unsorted(values).map_err(malloc_error)?;
+        Ok(())
     }
 
     /// Updates the digest (in-place) with a single float value.
     #[inline]
-    pub fn update(&mut self, value: f64) {
-        record_observation(self, value);
+    pub fn update(&mut self, value: f64) -> PyResult<()> {
+        record_observation(self, value)?;
+        Ok(())
     }
 
     /// Estimates the quantile for a given cumulative probability `q`.
     pub fn quantile(&mut self, q: f64) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if q < 0.0 || q > 1.0 {
             return Err(PyValueError::new_err("q must be between 0 and 1."));
@@ -167,7 +182,7 @@ impl PyTDigest {
 
     /// Estimates the percentile for a given cumulative probability `p` (%).
     pub fn percentile(&mut self, p: f64) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if p < 0.0 || p > 100.0 {
             return Err(PyValueError::new_err("p must be between 0 and 100."));
@@ -180,7 +195,7 @@ impl PyTDigest {
 
     /// Estimates the rank (cumulative probability) of a given value `x`.
     pub fn cdf(&mut self, x: f64) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -190,7 +205,7 @@ impl PyTDigest {
 
     /// Returns the trimmed mean of the data between the q1 and q2 quantiles.
     pub fn trimmed_mean(&mut self, q1: f64, q2: f64) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if q1 < 0.0 || q2 > 1.0 || q1 >= q2 {
             return Err(PyValueError::new_err(
@@ -243,7 +258,7 @@ impl PyTDigest {
     /// Estimates the empirical probability of a value being in
     /// the interval \[`x1`, `x2`\].
     pub fn probability(&mut self, x1: f64, x2: f64) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if x1 > x2 {
             return Err(PyValueError::new_err(
@@ -259,7 +274,7 @@ impl PyTDigest {
 
     /// Returns the sum of the data.
     pub fn sum(&mut self) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -269,7 +284,7 @@ impl PyTDigest {
 
     /// Returns the mean of the data.
     pub fn mean(&mut self) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -279,7 +294,7 @@ impl PyTDigest {
 
     /// Returns the lowest ingested value.
     pub fn min(&mut self) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -289,7 +304,7 @@ impl PyTDigest {
 
     /// Returns the highest ingested value.
     pub fn max(&mut self) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -299,7 +314,7 @@ impl PyTDigest {
 
     /// Estimates the median.
     pub fn median(&mut self) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -309,7 +324,7 @@ impl PyTDigest {
 
     /// Estimates the inter-quartile range.
     pub fn iqr(&mut self) -> PyResult<f64> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         if self.digest.is_empty() {
             return Err(PyValueError::new_err("TDigest is empty."));
@@ -323,7 +338,7 @@ impl PyTDigest {
     /// The dict contains a key "centroids" mapping to a list of dicts,
     /// each with keys "m" (mean) and "c" (weight or count).
     pub fn to_dict(&mut self, py: Python) -> PyResult<Py<PyAny>> {
-        flush_cache(self);
+        flush_cache(self)?;
 
         let dict = PyDict::new(py);
 
@@ -353,8 +368,10 @@ impl PyTDigest {
                 PyKeyError::new_err("Key 'centroids' not found in dictionary.")
             })?;
         let centroids_list: &Bound<'py, PyList> = centroids_obj.downcast()?;
-        let mut centroids: Vec<Centroid> =
-            Vec::with_capacity(centroids_list.len());
+        let mut centroids: Vec<Centroid> = Vec::new();
+        centroids
+            .try_reserve_exact(centroids_list.len())
+            .map_err(malloc_error)?;
         let mut sum = 0.0;
         let mut count = 0.0;
         let mut min = std::f64::NAN;
@@ -407,8 +424,9 @@ impl PyTDigest {
 
         let digest = if !centroids.is_empty() {
             TDigest::new(centroids, sum, count, max, min, max_centroids)
+                .map_err(malloc_error)?
         } else {
-            TDigest::new_with_size(max_centroids)
+            TDigest::new_with_size(max_centroids).map_err(malloc_error)?
         };
 
         Ok(Self {
@@ -419,13 +437,13 @@ impl PyTDigest {
 
     /// TDigest.copy() returns a copy of the instance.
     pub fn copy(&mut self) -> PyResult<Self> {
-        flush_cache(self);
+        flush_cache(self)?;
         Ok(self.clone())
     }
 
     /// Magic method: copy(digest) returns a copy of the instance.
     pub fn __copy__(&mut self) -> PyResult<Self> {
-        flush_cache(self);
+        flush_cache(self)?;
         Ok(self.clone())
     }
 
@@ -434,7 +452,7 @@ impl PyTDigest {
         &mut self,
         _memo: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        flush_cache(self);
+        flush_cache(self)?;
         Ok(self.clone())
     }
 
@@ -476,8 +494,8 @@ impl PyTDigest {
 
     /// Magic method: enables equality checking (==).
     pub fn __eq__(&mut self, other: &mut Self) -> PyResult<bool> {
-        flush_cache(self);
-        flush_cache(other);
+        flush_cache(self)?;
+        flush_cache(other)?;
 
         if !tdigest_fields_equal(&self.digest, &other.digest) {
             return Ok(false);
@@ -508,8 +526,8 @@ impl PyTDigest {
     }
 
     /// Magic method: dig1 += dig2 calls dig1.merge_inplace(dig2).
-    pub fn __iadd__(&mut self, other: &mut Self) {
-        self.merge_inplace(other);
+    pub fn __iadd__(&mut self, other: &mut Self) -> PyResult<()> {
+        self.merge_inplace(other)
     }
 }
 
@@ -529,7 +547,7 @@ pub fn merge_all(
             .map_err(|_| {
                 PyTypeError::new_err("Provide an iterable of TDigests.")
             })?;
-        flush_cache(&mut py_tdigest);
+        flush_cache(&mut py_tdigest)?;
         Ok(py_tdigest.digest.clone())
     })
     .collect::<PyResult<Vec<_>>>()?;
@@ -540,7 +558,8 @@ pub fn merge_all(
         None => None,
     };
 
-    let merged = TDigest::merge_digests(digests, max_cent_valid);
+    let merged = TDigest::merge_digests(digests, max_cent_valid)
+        .map_err(malloc_error)?;
     Ok(PyTDigest {
         digest: merged,
         ..Default::default()
@@ -549,24 +568,32 @@ pub fn merge_all(
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline]
-fn record_observation(state: &mut PyTDigest, observation: f64) {
+fn record_observation(
+    state: &mut PyTDigest,
+    observation: f64,
+) -> PyResult<()> {
     state.cache[state.i as usize] = observation;
     state.i += 1;
     if state.i == CACHE_SIZE {
-        flush_cache(state)
+        flush_cache(state)?;
     }
+    Ok(())
 }
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline]
-fn flush_cache(state: &mut PyTDigest) {
+fn flush_cache(state: &mut PyTDigest) -> PyResult<()> {
     if state.i < 1 {
-        return;
+        return Ok(());
     }
-    state.digest = state.digest.merge_unsorted(Vec::from(
-        &state.cache[0..state.i as usize],
-    ));
+    state.digest = state
+        .digest
+        .merge_unsorted(
+            Vec::from(&state.cache[0..state.i as usize])
+        )
+        .map_err(malloc_error)?;
     state.i = 0;
+    Ok(())
 }
 
 /// Helper function to compare two TDigest instances
@@ -599,6 +626,11 @@ fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
         ));
     }
     Ok(max_centroids as usize)
+}
+
+/// Helper function to raise memory allocation errors
+fn malloc_error(_err: TryReserveError) -> PyErr {
+    PyMemoryError::new_err("Failed to allocate sufficient memory for TDigest.")
 }
 
 /// Python module definition
