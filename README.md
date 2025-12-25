@@ -104,12 +104,15 @@ print(f"Trimmed mean: {digest.trimmed_mean(0.1, 0.9)}")
 
 ### Updating a TDigest
 
-Use `batch_update` to merge a sequence of many values at once, or `update` to add one value at a time:
+Use `batch_update` to merge a sequence of many values at once, or `update` to add one value at a time.
+Both methods accept optional weights:
 
 ```python
 digest = TDigest()
 digest.batch_update([0, 1, 2])
 digest.update(3)
+digest.update(3, weight=2.5)
+digest.batch_update([4, 5], weights=[1.0, 0.5])
 ```
 
 Note: These methods are *not* the same - they are optimized for different use-cases, and there can be significant performance differences.

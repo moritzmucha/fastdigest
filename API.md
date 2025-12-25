@@ -2,7 +2,7 @@
 
 - [Initialization](#initialization)
   - [TDigest()](#tdigest)
-  - [TDigest.from_values(values)](#tdigestfrom_valuesvalues)
+  - [TDigest.from_values(values, weights=None)](#tdigestfrom_valuesvalues-weightsnone)
 - [Mathematical functions](#mathematical-functions)
   - [self.quantile(q)](#selfquantileq)
   - [self.percentile(p)](#selfpercentilep)
@@ -16,8 +16,8 @@
   - [self.min()](#selfmin)
   - [self.max()](#selfmax)
 - [Updating a TDigest](#updating-a-tdigest)
-  - [self.update(value)](#selfupdatevalue)
-  - [self.batch_update(values)](#selfbatch_updatevalues)
+  - [self.update(value, weight=1.0)](#selfupdatevalue-weight10)
+  - [self.batch_update(values, weights=None)](#selfbatch_updatevalues-weightsnone)
 - [Merging TDigest objects](#merging-tdigest-objects)
   - [self.merge(other)](#selfmergeother)
   - [self.merge_inplace(other)](#selfmerge_inplaceother)
@@ -52,7 +52,7 @@ digest
 
 Setting `max_centroids` to 0 disables compression entirely. This will incur a significant performance cost on all operations and is not recommended.
 
-#### TDigest.from_values(values)
+#### TDigest.from_values(values, weights=None)
 
 Static method to initialize a TDigest directly from any sequence of numerical values.
 
@@ -62,6 +62,7 @@ import numpy as np
 digest = TDigest.from_values([2.71, 3.14, 1.42])  # from list
 digest = TDigest.from_values((42,))               # from tuple
 digest = TDigest.from_values(range(101))          # from range
+digest = TDigest.from_values([1, 2, 3], weights=[1, 2, 3])  # weighted
 
 data = np.random.random(10_000)
 digest = TDigest.from_values(data)  # from NumPy array
@@ -202,13 +203,14 @@ print(f"Maximum: {digest.max():+.3f}")
 
 ### Updating a TDigest
 
-#### self.update(value)
+#### self.update(value, weight=1.0)
 
-Update a digest in-place with a single value.
+Update a digest in-place with a single value. Optional `weight` parameter allows to weight inserted sample (default is 1.0 for backward compatibility).
 
 ```python
 digest = TDigest.from_values([1, 2, 3, 4, 5, 6])
 digest.update(42)
+digest.update(42, weight=3.0)
 
 print(f"{digest}: {digest.n_values} values")
 ```
@@ -216,7 +218,7 @@ print(f"{digest}: {digest.n_values} values")
 
 **Note:** This writes to a stack-allocated buffer before merging, which is significantly faster than `batch_update` for rapid iteration with one value (or few values) at a time, e.g. in streaming applications.
 
-#### self.batch_update(values)
+#### self.batch_update(values, weights=None)
 
 Update a digest in-place by merging a sequence of many values at once.
 
@@ -224,6 +226,7 @@ Update a digest in-place by merging a sequence of many values at once.
 digest = TDigest()
 digest.batch_update([1, 2, 3, 4, 5, 6])
 digest.batch_update(np.arange(7, 11))  # using numpy array
+digest.batch_update([1, 2, 3], weights=[0.5, 1.0, 1.5])
 digest.batch_update([5])  # can also just be one value ...
 digest.batch_update([])   # ... or empty
 
@@ -361,7 +364,9 @@ Returns the number of centroids in the digest.
 
 #### self.n_values
 
-Returns the total number of values ingested.
+Returns the total weight of all ingested values (rounded to the nearest integer). 
+
+> Note: This may differ from the actual number of ingested samples if weights other than 1.0 were used.
 
 #### Magic methods
 

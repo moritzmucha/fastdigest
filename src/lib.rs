@@ -14,6 +14,8 @@ const MAX_MAX_CENTROIDS: i64 = (isize::MAX / 16) as i64;
 pub struct PyTDigest {
     digest: TDigest,
     cache: [f64; CACHE_SIZE as usize],
+    cache_weights: [f64; CACHE_SIZE as usize],
+    cache_weight_sum: f64,
     i: u8,
 }
 
@@ -24,6 +26,8 @@ impl Default for PyTDigest {
         Self {
             digest,
             cache: [0.0; CACHE_SIZE as usize],
+            cache_weights: [0.0; CACHE_SIZE as usize],
+            cache_weight_sum: 0.0,
             i: 0,
         }
     }
@@ -46,23 +50,29 @@ impl PyTDigest {
 
     /// Constructs a new TDigest from a sequence of float values.
     #[staticmethod]
-    #[pyo3(signature = (values, max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
-    pub fn from_values(values: Vec<f64>, max_centroids: i64) -> PyResult<Self> {
+    #[pyo3(signature = (values, weights=None, max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
+    pub fn from_values(
+        values: Vec<f64>,
+        weights: Option<Vec<f64>>,
+        max_centroids: i64,
+    ) -> PyResult<Self> {
         let max_cent_valid = validate_max_centroids(max_centroids)?;
         let digest =
             TDigest::new_with_size(max_cent_valid).map_err(malloc_error)?;
-        if values.is_empty() {
-            Ok(Self {
+        let weighted_values = validate_and_zip_weights(values, weights)?;
+        if weighted_values.is_empty() {
+            return Ok(Self {
                 digest,
                 ..Default::default()
-            })
-        } else {
-            let digest = digest.merge_unsorted(values).map_err(malloc_error)?;
-            Ok(Self {
-                digest,
-                ..Default::default()
-            })
+            });
         }
+        let digest = digest
+            .merge_unsorted_weighted(weighted_values)
+            .map_err(malloc_error)?;
+        Ok(Self {
+            digest,
+            ..Default::default()
+        })
     }
 
     /// Getter property: returns the max_centroids parameter.
@@ -82,7 +92,8 @@ impl PyTDigest {
     /// Getter property: returns the total number of data points ingested.
     #[getter(n_values)]
     pub fn get_n_values(&self) -> PyResult<u64> {
-        Ok(self.digest.count().round() as u64 + self.i as u64)
+        let total_weight = self.digest.count() + self.cache_weight_sum;
+        Ok(total_weight.round() as u64)
     }
 
     /// Getter property: returns the number of centroids.
@@ -143,23 +154,39 @@ impl PyTDigest {
     }
 
     /// Updates the digest (in-place) with a sequence of float values.
-    pub fn batch_update(&mut self, values: Vec<f64>) -> PyResult<()> {
+    /// Optional weights can be provided to scale each observation.
+    #[pyo3(signature = (values, weights=None))]
+    pub fn batch_update(
+        &mut self,
+        values: Vec<f64>,
+        weights: Option<Vec<f64>>,
+    ) -> PyResult<()> {
         flush_cache(self)?;
 
-        if values.is_empty() {
+        let weighted_values = validate_and_zip_weights(values, weights)?;
+        if weighted_values.is_empty() {
             return Ok(());
         }
-        self.digest =
-            self.digest.merge_unsorted(values).map_err(malloc_error)?;
+        self.digest = self
+            .digest
+            .merge_unsorted_weighted(weighted_values)
+            .map_err(malloc_error)?;
         Ok(())
     }
 
     /// Updates the digest (in-place) with a single float value.
+    /// Optional weight can be provided to scale the observation.
     #[inline]
-    pub fn update(&mut self, value: f64) -> PyResult<()> {
-        record_observation(self, value)?;
+    #[pyo3(signature = (value, weight=1.0))]
+    pub fn update(&mut self, value: f64, weight: f64) -> PyResult<()> {
+        validate_weight(weight)?;
+        if weight == 0.0 {
+            return Ok(());
+        }
+        record_observation(self, value, weight)?;
         Ok(())
     }
+
 
     /// Estimates the quantile for a given cumulative probability `q`.
     pub fn quantile(&mut self, q: f64) -> PyResult<f64> {
@@ -548,9 +575,15 @@ pub fn merge_all(
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline]
-fn record_observation(state: &mut PyTDigest, observation: f64) -> PyResult<()> {
+fn record_observation(
+    state: &mut PyTDigest,
+    observation: f64,
+    weight: f64,
+) -> PyResult<()> {
     state.cache[state.i as usize] = observation;
+    state.cache_weights[state.i as usize] = weight;
     state.i += 1;
+    state.cache_weight_sum += weight;
     if state.i == CACHE_SIZE {
         flush_cache(state)?;
     }
@@ -565,10 +598,69 @@ fn flush_cache(state: &mut PyTDigest) -> PyResult<()> {
     }
     state.digest = state
         .digest
-        .merge_unsorted(Vec::from(&state.cache[0..state.i as usize]))
+        .merge_unsorted_weighted({
+            let mut weighted_values: Vec<(f64, f64)> =
+                Vec::with_capacity(state.i as usize);
+            for (value, weight) in state.cache[0..state.i as usize]
+                .iter()
+                .copied()
+                .zip(
+                    state.cache_weights[0..state.i as usize]
+                        .iter()
+                        .copied(),
+                )
+            {
+                weighted_values.push((value, weight));
+            }
+            weighted_values
+        })
         .map_err(malloc_error)?;
     state.i = 0;
+    state.cache_weight_sum = 0.0;
     Ok(())
+}
+
+fn validate_weight(weight: f64) -> PyResult<()> {
+    if !weight.is_finite() || weight < 0.0 {
+        return Err(PyValueError::new_err(
+            "weight must be a finite, non-negative number.",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_and_zip_weights(
+    values: Vec<f64>,
+    weights: Option<Vec<f64>>,
+) -> PyResult<Vec<(f64, f64)>> {
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut result: Vec<(f64, f64)> = Vec::new();
+    match weights {
+        None => {
+            result.reserve_exact(values.len());
+            for value in values {
+                result.push((value, 1.0));
+            }
+        }
+        Some(weights) => {
+            if values.len() != weights.len() {
+                return Err(PyValueError::new_err(
+                    "values and weights must have the same length.",
+                ));
+            }
+            result.reserve_exact(values.len());
+            for (value, weight) in values.into_iter().zip(weights.into_iter()) {
+                validate_weight(weight)?;
+                if weight == 0.0 {
+                    continue;
+                }
+                result.push((value, weight));
+            }
+        }
+    }
+    Ok(result)
 }
 
 /// Helper function to compare two TDigest instances

@@ -236,6 +236,48 @@ def test_updates(
 
 
 # -------------------------------------------------------------------
+# Weighted update tests
+# -------------------------------------------------------------------
+def test_weighted_update_mean_sum() -> None:
+    d = TDigest()
+    d.update(10, weight=2)
+    d.update(0, weight=1)
+    d.update(5, weight=0)  # weight zero, should have no effect
+    assert d.n_values == 3
+    assert math.isclose(d.sum(), 20.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(d.mean(), 20.0 / 3.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(d.min(), 0.0, rel_tol=RTOL, abs_tol=EPS)
+    assert math.isclose(d.max(), 10.0, rel_tol=RTOL, abs_tol=EPS)
+
+
+def test_weighted_batch_update_and_from_values() -> None:
+    d1 = TDigest()
+    d1.batch_update([1, 2, 3], weights=[1, 2, 3])
+    assert d1.n_values == 6
+    assert math.isclose(d1.sum(), 14.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(d1.mean(), 14.0 / 6.0, rel_tol=RTOL, abs_tol=ATOL)
+    d2 = TDigest.from_values([1, 2, 3], weights=[1, 2, 3])
+    assert d2.n_values == 6
+    assert math.isclose(d2.sum(), 14.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(d2.mean(), 14.0 / 6.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert d1 == d2, "Produced TDigest instances should be equal"
+
+
+def test_weight_validation() -> None:
+    d = TDigest()
+    with pytest.raises(ValueError):
+        d.update(1, weight=-1)
+    with pytest.raises(ValueError):
+        d.batch_update([1, 2], weights=[1])
+    with pytest.raises(ValueError):
+        d.batch_update([1], weights=[-1])
+    with pytest.raises(ValueError):
+        TDigest.from_values([1], weights=[-1])
+    with pytest.raises(ValueError):
+        TDigest.from_values([1, 2], weights=[1])
+
+
+# -------------------------------------------------------------------
 # Quantile tests (quantile, percentile, median, iqr, min, max)
 # -------------------------------------------------------------------
 def test_quantile_median_min_max(empty_digest: TDigest) -> None:
