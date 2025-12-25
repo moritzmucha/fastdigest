@@ -33,12 +33,17 @@ class TDigest:
 
     @staticmethod
     def from_values(
-        values: Sequence[Union[float, int]], max_centroids: int = 1000
+        values: Sequence[Union[float, int]],
+        weights: Optional[Sequence[Union[float, int]]] = None,
+        max_centroids: int = 1000,
     ) -> "TDigest":
         """
         Create a new TDigest of a sequence of numerical values.
 
         :param values: Sequence of float or int values.
+        :param weights:
+            Optional sequence of weights. If provided, it must have the same
+            length as `values`.
         :param max_centroids:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
@@ -119,7 +124,11 @@ class TDigest:
         """
         ...
 
-    def batch_update(self, values: Sequence[Union[float, int]]) -> None:
+    def batch_update(
+        self,
+        values: Sequence[Union[float, int]],
+        weights: Optional[Sequence[Union[float, int]]] = None,
+    ) -> None:
         """
         Update the TDigest in-place with a sequence of numbers.
 
@@ -127,10 +136,13 @@ class TDigest:
         `update` in most cases.
 
         :param values: Sequence of values to add.
+        :param weights:
+            Optional sequence of weights. If provided, it must have the same
+            length as `values`.
         """
         ...
 
-    def update(self, value: Union[float, int]) -> None:
+    def update(self, value: Union[float, int], weight: float = 1.0) -> None:
         """
         Update the TDigest in-place with a single value.
 
@@ -139,6 +151,7 @@ class TDigest:
         add one observed value at a time, e.g. in streaming applications.
 
         :param value: Single value to add.
+        :param weight: Optional weight for the value (default is 1.0 for backward compatibility).
         """
         ...
 

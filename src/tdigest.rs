@@ -225,31 +225,62 @@ impl TDigest {
         &self,
         unsorted_values: Vec<f64>,
     ) -> Result<TDigest, TryReserveError> {
-        let mut sorted_values: Vec<OrderedFloat<f64>> = unsorted_values
-            .into_iter()
-            .map(OrderedFloat::from)
-            .collect();
-        sorted_values.sort();
-        let sorted_values =
-            sorted_values.into_iter().map(|f| f.into_inner()).collect();
+        let weighted_values: Vec<(f64, f64)> =
+            unsorted_values.into_iter().map(|v| (v, 1.0)).collect();
+        self.merge_unsorted_weighted(weighted_values)
+    }
 
-        self.merge_sorted(sorted_values)
+    pub fn merge_unsorted_weighted(
+        &self,
+        unsorted_values: Vec<(f64, f64)>,
+    ) -> Result<TDigest, TryReserveError> {
+        let mut sorted_values: Vec<(OrderedFloat<f64>, f64)> =
+            unsorted_values
+                .into_iter()
+                .filter(|(_, weight)| *weight > 0.0)
+                .map(|(value, weight)| (OrderedFloat::from(value), weight))
+                .collect();
+        if sorted_values.is_empty() {
+            return Ok(self.clone());
+        }
+        sorted_values.sort_by(|(a, _), (b, _)| a.cmp(b));
+        let sorted_values = sorted_values
+            .into_iter()
+            .map(|(value, weight)| (value.into_inner(), weight))
+            .collect();
+
+        self.merge_sorted_weighted(sorted_values)
     }
 
     pub fn merge_sorted(
         &self,
         sorted_values: Vec<f64>,
     ) -> Result<TDigest, TryReserveError> {
+        let weighted_values: Vec<(f64, f64)> =
+            sorted_values.into_iter().map(|v| (v, 1.0)).collect();
+        self.merge_sorted_weighted(weighted_values)
+    }
+
+    pub fn merge_sorted_weighted(
+        &self,
+        sorted_values: Vec<(f64, f64)>,
+    ) -> Result<TDigest, TryReserveError> {
+        let sorted_values: Vec<(f64, f64)> = sorted_values
+            .into_iter()
+            .filter(|(_, weight)| *weight > 0.0)
+            .collect();
         if sorted_values.is_empty() {
             return Ok(self.clone());
         }
 
         let mut result = TDigest::new_with_size(self.max_size())?;
-        result.count =
-            OrderedFloat::from(self.count() + (sorted_values.len() as f64));
+        let added_weight: f64 =
+            sorted_values.iter().map(|(_, weight)| weight).sum();
+        result.count = OrderedFloat::from(self.count() + added_weight);
 
-        let maybe_min = OrderedFloat::from(*sorted_values.first().unwrap());
-        let maybe_max = OrderedFloat::from(*sorted_values.last().unwrap());
+        let maybe_min =
+            OrderedFloat::from(sorted_values.first().unwrap().0);
+        let maybe_max = OrderedFloat::from(sorted_values.last().unwrap().0);
 
         if self.count() > 0.0 {
             result.min = std::cmp::min(self.min, maybe_min);
@@ -272,14 +303,16 @@ impl TDigest {
         let mut iter_sorted_values = sorted_values.iter().peekable();
 
         let mut curr: Centroid = if let Some(c) = iter_centroids.peek() {
-            let curr = **iter_sorted_values.peek().unwrap();
+            let curr = iter_sorted_values.peek().unwrap().0;
             if c.mean() < curr {
                 iter_centroids.next().unwrap().clone()
             } else {
-                Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                let (value, weight) = iter_sorted_values.next().unwrap();
+                Centroid::new(*value, *weight)
             }
         } else {
-            Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+            let (value, weight) = iter_sorted_values.next().unwrap();
+            Centroid::new(*value, *weight)
         };
 
         let mut weight_so_far: f64 = curr.weight();
@@ -292,14 +325,16 @@ impl TDigest {
         {
             let next: Centroid = if let Some(c) = iter_centroids.peek() {
                 if iter_sorted_values.peek().is_none()
-                    || c.mean() < **iter_sorted_values.peek().unwrap()
+                    || c.mean() < iter_sorted_values.peek().unwrap().0
                 {
                     iter_centroids.next().unwrap().clone()
                 } else {
-                    Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                    let (value, weight) = iter_sorted_values.next().unwrap();
+                    Centroid::new(*value, *weight)
                 }
             } else {
-                Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                let (value, weight) = iter_sorted_values.next().unwrap();
+                Centroid::new(*value, *weight)
             };
 
             let next_sum: f64 = next.mean() * next.weight();
@@ -503,6 +538,10 @@ impl TDigest {
     pub fn estimate_quantile(&self, q: f64) -> f64 {
         let q = q.clamp(0.0, 1.0);
 
+        if self.count() <= 1.0 {
+            return self.centroids[0].mean.into_inner();
+        }
+
         if self.centroids.len() == 1 {
             return self.centroids[0].mean.into_inner();
         }
@@ -546,6 +585,19 @@ impl TDigest {
 
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
     pub fn estimate_rank(&self, x: f64) -> f64 {
+        if self.count() <= 1.0 {
+            return match self.centroids[0]
+                .mean
+                .into_inner()
+                .partial_cmp(&x)
+                .unwrap()
+            {
+                Ordering::Less => 1.0,
+                Ordering::Equal => 0.5,
+                Ordering::Greater => 0.0,
+            };
+        }
+
         if self.centroids.len() == 1 {
             match self.centroids[0].mean.into_inner().partial_cmp(&x).unwrap() {
                 Ordering::Less => return 1.0,
