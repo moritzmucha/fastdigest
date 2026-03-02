@@ -56,12 +56,12 @@ def compute_pytd(
 ) -> Tuple[float, float]:
     dataset = np.array(dataset)
     start = time.perf_counter()
-    digest = PyTDigest(MAX_CENTROIDS)
     if incremental:
+        digest = PyTDigest(MAX_CENTROIDS)
         for x in dataset:
-            digest = digest.compute(x)
+            digest.update(x)
     else:
-        digest = digest.compute(dataset)
+        digest = PyTDigest.compute(dataset, compression=MAX_CENTROIDS)
     result = digest.inverse_cdf(p / 100)
     elapsed = TIME_UNITS_PER_SECOND * (time.perf_counter() - start)
     return result, elapsed

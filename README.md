@@ -164,7 +164,7 @@ Dicts created by *tdigest* can also natively be used by *fastDigest*.
 | Library            | Time (ms) | Relative speed |
 |--------------------|-----------|----------------|
 | tdigest            | 9,773     | 1x             |
-| pytdigest          | 54        | 180x           |
+| pytdigest          | 66        | 148x           |
 | **fastdigest**     | **20**    | **480x**       |
 
 If you want to try it yourself, install *fastDigest* (and optionally [*tdigest*](https://github.com/CamDavidsonPilon/tdigest) and/or [*pytdigest*](https://github.com/protivinsky/pytdigest)) and run:
