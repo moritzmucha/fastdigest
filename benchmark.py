@@ -12,6 +12,7 @@ T = TypeVar("T")
 MAX_CENTROIDS = 1000  # should be same as fastdigest's default
 TIME_UNITS_PER_SECOND = 1000  # granularity of time measurements
 TIME_UNIT = "ms"  # for console output
+WEIGHT = 2.0  # for weighted updates
 
 # Run parameter defaults:
 P = 50  # percentile to estimate
@@ -35,13 +36,19 @@ def compute(
     cls: Type[T],
     dataset: Sequence[float],
     incremental: bool = False,
+    weighted: bool = False,
     p: Union[float, int] = P,
 ) -> Tuple[float, float]:
     start = time.perf_counter()
     digest = cls()
-    if incremental:
+    if incremental and weighted:
+        for x in dataset:
+            digest.update(x, WEIGHT)
+    elif incremental:
         for x in dataset:
             digest.update(x)
+    elif weighted:
+        digest.batch_update(dataset, WEIGHT)
     else:
         digest.batch_update(dataset)
     result = digest.percentile(p)
@@ -52,16 +59,26 @@ def compute(
 def compute_pytd(
     dataset: Sequence[float],
     incremental: bool = False,
+    weighted: bool = False,
     p: Union[float, int] = P,
 ) -> Tuple[float, float]:
-    dataset = np.array(dataset)
+    if not incremental:
+        x_arr = np.array(dataset)
+    if weighted and not incremental:
+        w_arr = WEIGHT * np.ones_like(x_arr)
     start = time.perf_counter()
-    if incremental:
+    if incremental and weighted:
+        digest = PyTDigest(MAX_CENTROIDS)
+        for x in dataset:
+            digest.update(x, WEIGHT)
+    elif incremental:
         digest = PyTDigest(MAX_CENTROIDS)
         for x in dataset:
             digest.update(x)
+    elif weighted:
+        digest = PyTDigest.compute(x_arr, w_arr, compression=MAX_CENTROIDS)
     else:
-        digest = PyTDigest.compute(dataset, compression=MAX_CENTROIDS)
+        digest = PyTDigest.compute(x_arr, compression=MAX_CENTROIDS)
     result = digest.inverse_cdf(p / 100)
     elapsed = TIME_UNITS_PER_SECOND * (time.perf_counter() - start)
     return result, elapsed
@@ -71,6 +88,7 @@ def run_benchmark(
     cls: Type[T],
     name: str,
     incremental: bool = False,
+    weighted: bool = False,
     p: Union[float, int] = P,
     n: int = N,
     r: int = R,
@@ -88,9 +106,9 @@ def run_benchmark(
             line = f"{name:>10}: {prog_str:17} | last result: {result:.3f} "
         print("\r" + line, end="", flush=True)
         if cls == PyTDigest:
-            result, elapsed = compute_pytd(data, incremental, p)
+            result, elapsed = compute_pytd(data, incremental, weighted, p)
         else:
-            result, elapsed = compute(cls, data, incremental, p)
+            result, elapsed = compute(cls, data, incremental, weighted, p)
         times.append(elapsed)
     t_mean = mean(times)
     if r > 1:
@@ -129,6 +147,12 @@ def main():
         ),
     )
     parser.add_argument(
+        "-w",
+        "--weighted",
+        action="store_true",
+        help=("use weighted updates"),
+    )
+    parser.add_argument(
         "-p",
         "--percentile",
         type=float,
@@ -151,8 +175,9 @@ def main():
     )
     args = parser.parse_args()
     i = args.incremental
-    n = args.n_values
+    w = args.weighted
     p = args.percentile
+    n = args.n_values
     r = args.repeat
 
     if not 0 <= p <= 100:
@@ -170,10 +195,10 @@ def main():
     for cls, lib in ((LegacyTDigest, "tdigest"), (PyTDigest, "pytdigest")):
         if cls is None:
             continue
-        t = run_benchmark(cls, lib, i, p, n, r, baseline)
+        t = run_benchmark(cls, lib, i, w, p, n, r, baseline)
         if baseline == -1:
             baseline = t
-    run_benchmark(TDigest, "fastdigest", i, p, n, r, max(baseline, 0))
+    run_benchmark(TDigest, "fastdigest", i, w, p, n, r, max(baseline, 0))
     print()
 
 

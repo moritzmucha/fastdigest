@@ -13,7 +13,9 @@ const MAX_MAX_CENTROIDS: i64 = (isize::MAX / 16) as i64;
 #[derive(Clone)]
 pub struct PyTDigest {
     digest: TDigest,
-    cache: [f64; CACHE_SIZE],
+    x_cache: [f64; CACHE_SIZE],
+    w_cache: [f64; CACHE_SIZE],
+    w_cache_set: bool,
     i: usize,
 }
 
@@ -23,7 +25,9 @@ impl Default for PyTDigest {
             .expect("default max size should be allocatable");
         Self {
             digest,
-            cache: [0.0; CACHE_SIZE],
+            x_cache: [0.0; CACHE_SIZE],
+            w_cache: [1.0; CACHE_SIZE],
+            w_cache_set: false,
             i: 0,
         }
     }
@@ -46,18 +50,29 @@ impl PyTDigest {
 
     /// Constructs a new TDigest from a sequence of float values.
     #[staticmethod]
-    #[pyo3(signature = (values, max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
-    pub fn from_values(values: Vec<f64>, max_centroids: i64) -> PyResult<Self> {
+    #[pyo3(signature = (x, w=None, max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
+    pub fn from_values(
+        py: Python,
+        x: Vec<f64>,
+        w: Option<Py<PyAny>>,
+        max_centroids: i64,
+    ) -> PyResult<Self> {
         let max_cent_valid = validate_max_centroids(max_centroids)?;
         let digest =
             TDigest::new_with_size(max_cent_valid).map_err(malloc_error)?;
-        if values.is_empty() {
+        if x.is_empty() {
             Ok(Self {
                 digest,
                 ..Default::default()
             })
         } else {
-            let digest = digest.merge_unsorted(values).map_err(malloc_error)?;
+            let w_vec = validate_weights(py, w, x.len())?;
+            let digest = match w_vec {
+                Some(weights) => digest
+                    .merge_unsorted_weighted(x, weights)
+                    .map_err(malloc_error)?,
+                None => digest.merge_unsorted(x).map_err(malloc_error)?,
+            };
             Ok(Self {
                 digest,
                 ..Default::default()
@@ -79,10 +94,21 @@ impl PyTDigest {
         Ok(())
     }
 
+    /// Getter property: returns the total weight of data points ingested.
+    #[getter(mass)]
+    pub fn get_mass(&self) -> PyResult<f64> {
+        let w_cache_sum = if self.w_cache_set {
+            Vec::from(&self.w_cache[0..self.i]).iter().sum()
+        } else {
+            self.i as f64
+        };
+        Ok(self.digest.mass() + w_cache_sum)
+    }
+
     /// Getter property: returns the total number of data points ingested.
     #[getter(n_values)]
-    pub fn get_n_values(&self) -> PyResult<u64> {
-        Ok(self.digest.count().round() as u64 + self.i as u64)
+    pub fn get_n_values(&self) -> PyResult<u128> {
+        Ok(self.digest.count() + self.i as u128)
     }
 
     /// Getter property: returns the number of centroids.
@@ -143,21 +169,34 @@ impl PyTDigest {
     }
 
     /// Updates the digest (in-place) with a sequence of float values.
-    pub fn batch_update(&mut self, values: Vec<f64>) -> PyResult<()> {
-        flush_cache(self)?;
-
-        if values.is_empty() {
+    #[pyo3(signature = (x, w=None))]
+    pub fn batch_update(
+        &mut self,
+        py: Python,
+        x: Vec<f64>,
+        w: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
+        if x.is_empty() {
             return Ok(());
         }
-        self.digest =
-            self.digest.merge_unsorted(values).map_err(malloc_error)?;
+
+        let w_vec = validate_weights(py, w, x.len())?;
+        self.digest = match w_vec {
+            Some(weights) => self
+                .digest
+                .merge_unsorted_weighted(x, weights)
+                .map_err(malloc_error)?,
+            None => self.digest.merge_unsorted(x).map_err(malloc_error)?,
+        };
         Ok(())
     }
 
     /// Updates the digest (in-place) with a single float value.
     #[inline]
-    pub fn update(&mut self, value: f64) -> PyResult<()> {
-        record_observation(self, value)?;
+    #[pyo3(signature = (x, w=None))]
+    pub fn update(&mut self, x: f64, w: Option<f64>) -> PyResult<()> {
+        let weight = validate_weight(w.unwrap_or(1.0))?;
+        record_observation(self, x, weight)?;
         Ok(())
     }
 
@@ -335,6 +374,7 @@ impl PyTDigest {
         let dict = PyDict::new(py);
 
         dict.set_item("max_centroids", self.digest.max_size())?;
+        dict.set_item("n_values", self.digest.count())?;
         dict.set_item("min", self.digest.min())?;
         dict.set_item("max", self.digest.max())?;
 
@@ -363,7 +403,7 @@ impl PyTDigest {
             .try_reserve_exact(centroids_list.len())
             .map_err(malloc_error)?;
         let mut sum = 0.0;
-        let mut count = 0.0;
+        let mut mass = 0.0;
         let mut min = std::f64::NAN;
         let mut max = std::f64::NAN;
 
@@ -383,7 +423,7 @@ impl PyTDigest {
                 .extract()?;
             centroids.push(Centroid::new(mean, weight));
             sum += mean * weight;
-            count += weight;
+            mass += weight;
             min = min.min(mean);
             max = max.max(mean);
         }
@@ -395,6 +435,13 @@ impl PyTDigest {
                 // If missing or null, set the default value.
                 _ => DEFAULT_MAX_CENTROIDS,
             };
+
+        // Check if the "n_values" key exists
+        let n_values: u128 = match tdigest_dict.get_item("n_values")? {
+            Some(obj) => obj.extract()?,
+            // If missing or null, take the rounded mass.
+            _ => mass.round() as u128,
+        };
 
         // Check if the "min" key exists
         let min: f64 = match tdigest_dict.get_item("min")? {
@@ -411,8 +458,16 @@ impl PyTDigest {
         };
 
         let digest = if !centroids.is_empty() {
-            TDigest::new(centroids, sum, count, max, min, max_centroids)
-                .map_err(malloc_error)?
+            TDigest::new(
+                centroids,
+                max_centroids,
+                n_values,
+                mass,
+                sum,
+                min,
+                max,
+            )
+            .map_err(malloc_error)?
         } else {
             TDigest::new_with_size(max_centroids).map_err(malloc_error)?
         };
@@ -548,8 +603,16 @@ pub fn merge_all(
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline]
-fn record_observation(state: &mut PyTDigest, observation: f64) -> PyResult<()> {
-    state.cache[state.i] = observation;
+fn record_observation(
+    state: &mut PyTDigest,
+    observation: f64,
+    weight: f64,
+) -> PyResult<()> {
+    state.x_cache[state.i] = observation;
+    if weight != 1.0 {
+        state.w_cache[state.i] = weight;
+        state.w_cache_set = true;
+    }
     state.i += 1;
     if state.i == CACHE_SIZE {
         flush_cache(state)?;
@@ -563,23 +626,32 @@ fn flush_cache(state: &mut PyTDigest) -> PyResult<()> {
     if state.i < 1 {
         return Ok(());
     }
-    state.digest = state
-        .digest
-        .merge_unsorted(Vec::from(&state.cache[0..state.i]))
-        .map_err(malloc_error)?;
+    let x = Vec::from(&state.x_cache[0..state.i]);
+    if state.w_cache_set {
+        let w = Vec::from(&state.w_cache[0..state.i]);
+        state.digest = state
+            .digest
+            .merge_unsorted_weighted(x, w)
+            .map_err(malloc_error)?;
+        state.w_cache = [1.0; CACHE_SIZE];
+        state.w_cache_set = false;
+    } else {
+        state.digest = state.digest.merge_unsorted(x).map_err(malloc_error)?;
+    }
     state.i = 0;
     Ok(())
 }
 
 /// Helper function to compare two TDigest instances
 fn tdigest_fields_equal(d1: &TDigest, d2: &TDigest) -> bool {
-    (d1.sum() - d2.sum()).abs() < f64::EPSILON
-        && (d1.count() - d2.count()).abs() < f64::EPSILON
-        && ((d1.max().is_nan() && d2.max().is_nan())
-            || ((d1.max() - d2.max()).abs() < f64::EPSILON))
+    (d1.max_size() == d2.max_size())
+        && (d1.count() == d2.count())
+        && (d1.mass() - d2.mass()).abs() < f64::EPSILON
+        && (d1.sum() - d2.sum()).abs() < f64::EPSILON
         && ((d1.min().is_nan() && d2.min().is_nan())
             || ((d1.min() - d2.min()).abs() < f64::EPSILON))
-        && (d1.max_size() == d2.max_size())
+        && ((d1.max().is_nan() && d2.max().is_nan())
+            || ((d1.max() - d2.max()).abs() < f64::EPSILON))
 }
 
 /// Helper function to compare two Centroids
@@ -601,6 +673,52 @@ fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
         ));
     }
     Ok(max_centroids as usize)
+}
+
+#[inline]
+fn validate_weight(weight: f64) -> PyResult<f64> {
+    if !weight.is_finite() || weight <= 0.0 {
+        return Err(PyValueError::new_err(
+            "weight must be finite and greater than 0.",
+        ));
+    }
+    Ok(weight)
+}
+
+/// Helper function to validate `w`. If scalar, creates Vec of length `x_len`.
+fn validate_weights(
+    py: Python,
+    w: Option<Py<PyAny>>,
+    x_len: usize,
+) -> PyResult<Option<Vec<f64>>> {
+    match w {
+        None => Ok(None),
+        Some(obj) => {
+            let any = obj.as_ref();
+            // Try scalar first
+            if let Ok(single_weight) = any.extract::<f64>(py) {
+                let w = validate_weight(single_weight)?;
+                return Ok(Some(vec![w; x_len]));
+            }
+
+            // Otherwise expect a sequence of floats
+            let w_vec: Vec<f64> =
+                any.extract::<Vec<f64>>(py).map_err(|_| {
+                    PyTypeError::new_err(
+                        "w (weight) must be a number or sequence of numbers.",
+                    )
+                })?;
+            if w_vec.len() != x_len {
+                return Err(PyValueError::new_err(
+                    "w (weight) sequence must have the same length as x.",
+                ));
+            }
+            for &w in &w_vec {
+                validate_weight(w)?;
+            }
+            Ok(Some(w_vec))
+        }
+    }
 }
 
 /// Helper function to raise memory allocation errors

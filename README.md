@@ -86,7 +86,7 @@ digest = TDigest.from_values(range(1001))
 print("99th percentile:", digest.quantile(0.99))
 ```
 
-Or the inverse - use `cdf` to find the rank (cumulative probability) of a given value:
+Or the inverse — use `cdf` to find the rank (cumulative probability) of a given value:
 
 ```python
 print("cdf(990) =", digest.cdf(990))
@@ -104,7 +104,9 @@ print(f"Trimmed mean: {digest.trimmed_mean(0.1, 0.9)}")
 
 ### Updating a TDigest
 
-Use `batch_update` to merge a sequence of many values at once, or `update` to add one value at a time:
+Use `batch_update` to merge a sequence of many values at once, or `update` to add one value at a time.
+
+> **Note:** These methods are optimized for different use-cases and have different performance characteristics. See [API.md](./API.md#updating-a-tdigest) for details.
 
 ```python
 digest = TDigest()
@@ -112,7 +114,14 @@ digest.batch_update([0, 1, 2])
 digest.update(3)
 ```
 
-Note: These methods are *not* the same - they are optimized for different use-cases, and there can be significant performance differences.
+Optionally specify weights in the second argument `w`:
+
+```python
+
+digest.update(4, 0.4)  # single weighted value
+digest.batch_update([5, 6, 7], w=1.5)  # whole-batch weight
+digest.batch_update([8, 9], [1.0, 2.0])  # per-value weights
+```
 
 ### Merging TDigest objects
 

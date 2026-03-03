@@ -33,12 +33,18 @@ class TDigest:
 
     @staticmethod
     def from_values(
-        values: Sequence[Union[float, int]], max_centroids: int = 1000
+        x: Sequence[Union[float, int]],
+        w: Optional[Union[Sequence[Union[float, int]], float, int]] = None,
+        max_centroids: int = 1000,
     ) -> "TDigest":
         """
         Create a new TDigest of a sequence of numerical values.
 
-        :param values: Sequence of float or int values.
+        :param x: Sequence of float or int values.
+        :param w:
+            Optional weights. This can be either a sequence of the same length
+            as `x` or a scalar that will be used as the weight for the entire
+            batch.
         :param max_centroids:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
@@ -57,13 +63,25 @@ class TDigest:
         ...
 
     @max_centroids.setter
-    def max_centroids(self, value: int) -> None: ...
+    def max_centroids(self, value: int) -> None:
+        ""
+        ...
+
+    @property
+    def mass(self) -> float:
+        """
+        Total weight of all data points fed into this TDigest.
+
+        :return: Sum of all centroid weights.
+        """
+        ...
+
     @property
     def n_values(self) -> int:
         """
-        Total number of data points fed into this TDigest.
+        Total number of individual data points fed into this TDigest.
 
-        :return: Sum of all centroid weights, rounded to the nearest integer.
+        :return: Number of values ingested.
         """
         ...
 
@@ -119,18 +137,30 @@ class TDigest:
         """
         ...
 
-    def batch_update(self, values: Sequence[Union[float, int]]) -> None:
+    def batch_update(
+        self,
+        x: Sequence[Union[float, int]],
+        w: Optional[Union[Sequence[Union[float, int]], float, int]] = None,
+    ) -> None:
         """
         Update the TDigest in-place with a sequence of numbers.
 
         This directly performs a merge, which is faster than looping over
         `update` in most cases.
 
-        :param values: Sequence of values to add.
+        :param x: Sequence of values to add.
+        :param w:
+            Optional weights. This can be either a sequence of the same length
+            as `x` or a scalar that will be used as the weight for the entire
+            batch.
         """
         ...
 
-    def update(self, value: Union[float, int]) -> None:
+    def update(
+        self,
+        x: Union[float, int],
+        w: Optional[Union[float, int]] = None,
+    ) -> None:
         """
         Update the TDigest in-place with a single value.
 
@@ -138,7 +168,8 @@ class TDigest:
         significantly faster than `batch_update` if you have to iteratively
         add one observed value at a time, e.g. in streaming applications.
 
-        :param value: Single value to add.
+        :param x: Single value to add.
+        :param w: Optional weight for `x`.
         """
         ...
 

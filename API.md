@@ -2,7 +2,7 @@
 
 - [Initialization](#initialization)
   - [TDigest()](#tdigest)
-  - [TDigest.from_values(values)](#tdigestfrom_valuesvalues)
+  - [TDigest.from_values(x, w=None)](#tdigestfrom_valuesx-wnone)
 - [Mathematical functions](#mathematical-functions)
   - [self.quantile(q)](#selfquantileq)
   - [self.percentile(p)](#selfpercentilep)
@@ -16,8 +16,8 @@
   - [self.min()](#selfmin)
   - [self.max()](#selfmax)
 - [Updating a TDigest](#updating-a-tdigest)
-  - [self.update(value)](#selfupdatevalue)
-  - [self.batch_update(values)](#selfbatch_updatevalues)
+  - [self.update(x, w=None)](#selfupdatex-wnone)
+  - [self.batch_update(x, w=None)](#selfbatch_updatex-wnone)
 - [Merging TDigest objects](#merging-tdigest-objects)
   - [self.merge(other)](#selfmergeother)
   - [self.merge_inplace(other)](#selfmerge_inplaceother)
@@ -32,6 +32,7 @@
   - [self.max_centroids](#selfmax_centroids)
   - [self.n_centroids](#selfn_centroids)
   - [self.n_values](#selfn_values)
+  - [self.mass](#selfmass)
   - [Magic methods](#magic-methods)
 
 ### Initialization
@@ -48,13 +49,13 @@ digest
 ```
     TDigest(max_centroids=1000)
 
-**Note:** The `max_centroids` parameter controls how large the data structure is allowed to grow. A lower value means more compression, enabling a smaller memory footprint and faster computation speed at the cost of some accuracy. The default value of 1000 offers a great balance.
-
+> **Note:** The `max_centroids` parameter controls how large the data structure is allowed to grow. A lower value means more compression, enabling a smaller memory footprint and faster computation speed at the cost of some precision.
+The default value of 1000 offers a great balance of speed and very high precision, but even 100 centroids can yield quantile estimation with single-decimal accuracy.
 Setting `max_centroids` to 0 disables compression entirely. This will incur a significant performance cost on all operations and is not recommended.
 
-#### TDigest.from_values(values)
+#### TDigest.from_values(x, w=None)
 
-Static method to initialize a TDigest directly from any sequence of numerical values.
+Static method to initialize a TDigest directly from any sequence of numerical values `x`. The optional weights `w` can be either a sequence of the same length as `x` or a scalar that will be used as the weight for the entire batch.
 
 ```python
 import numpy as np
@@ -62,6 +63,9 @@ import numpy as np
 digest = TDigest.from_values([2.71, 3.14, 1.42])  # from list
 digest = TDigest.from_values((42,))               # from tuple
 digest = TDigest.from_values(range(101))          # from range
+
+digest = TDigest.from_values([1, 2], w=[1, 2])  # weighted individually
+digest = TDigest.from_values([1, 2], w=2.0)     # weighted with scalar
 
 data = np.random.random(10_000)
 digest = TDigest.from_values(data)  # from NumPy array
@@ -202,36 +206,41 @@ print(f"Maximum: {digest.max():+.3f}")
 
 ### Updating a TDigest
 
-#### self.update(value)
+#### self.update(x, w=None)
 
-Update a digest in-place with a single value.
+Update a digest in-place with a single value `x`, with optional weight `w`.
 
 ```python
 digest = TDigest.from_values([1, 2, 3, 4, 5, 6])
-digest.update(42)
+digest.update(7)
+digest.update(42, w=5.0)
 
-print(f"{digest}: {digest.n_values} values")
+print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass}")
 ```
-    TDigest(max_centroids=1000): 7 values
+    TDigest(max_centroids=1000): 8 values, combined weight of 12.0
 
-**Note:** This writes to a stack-allocated buffer before merging, which is significantly faster than `batch_update` for rapid iteration with one value (or few values) at a time, e.g. in streaming applications.
+> **Note:** This writes to a stack-allocated buffer before merging, which is significantly faster than `batch_update` for rapid iteration with one value (or few values) at a time, e.g. in streaming applications.
 
-#### self.batch_update(values)
+#### self.batch_update(x, w=None)
 
-Update a digest in-place by merging a sequence of many values at once.
+Update a digest in-place by merging a sequence of many values `x` at once. The optional weights `w` can be either a sequence of the same length as `x` or a scalar that will be used as the weight for the entire batch.
 
 ```python
 digest = TDigest()
 digest.batch_update([1, 2, 3, 4, 5, 6])
 digest.batch_update(np.arange(7, 11))  # using numpy array
+
+digest.batch_update([1, 2], w=[1, 2])  # weighted individually
+digest.batch_update([1, 2], w=2.0)     # weighted with scalar
+
 digest.batch_update([5])  # can also just be one value ...
 digest.batch_update([])   # ... or empty
 
-print(f"{digest}: {digest.n_values} values")
+print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass}")
 ```
-    TDigest(max_centroids=1000): 11 values
+    TDigest(max_centroids=1000): 15 values, combined weight of 18.0
 
-**Note:** This directly performs a merge, which is faster than looping over `update` if you have the data in advance.
+> **Note:** This directly performs a merge, which is faster than looping over `update` if you have the data in advance.
 
 ### Merging TDigest objects
 
@@ -249,7 +258,7 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 ```
     TDigest(max_centroids=1000): 53 centroids from 101 values
 
-**Note:** When merging TDigests with different `max_centroids` parameters, the larger value is used for the new instance.
+> **Note:** When merging TDigests with different `max_centroids` parameters, the larger value is used for the new instance.
 
 #### self.merge_inplace(other)
 
@@ -265,7 +274,7 @@ print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 ```
     TDigest(max_centroids=30): 30 centroids from 101 values
 
-**Note:** Using this method leaves the `max_centroids` parameter of the calling TDigest unchanged.
+> **Note:** Using this method leaves the `max_centroids` parameter of the calling TDigest unchanged.
 
 #### merge_all(digests)
 
@@ -288,7 +297,7 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 ```
     TDigest(max_centroids=30): 30 centroids from 100 values
 
-**Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the `max_centroids` parameter for the new instance is automatically determined as the maximum of the input parameters. Otherwise, the specified value is used instead.
+> **Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the `max_centroids` parameter for the new instance is automatically determined as the maximum of the input parameters. Otherwise, the specified value is used instead.
 
 ### Dict conversion
 
@@ -306,6 +315,7 @@ print(json.dumps(tdigest_dict, indent=2))
 ```
     {
       "max_centroids": 3,
+      "n_values": 101,
       "min": 0.0,
       "max": 100.0,
       "centroids": [
@@ -324,7 +334,9 @@ print(json.dumps(tdigest_dict, indent=2))
       ]
     }
 
-**Note:** In the "centroids" list, each centroid is represented as a dict with keys "m" (mean) and "c" (count). The "max_centroids" key is optional. The "min" and "max" keys are not needed when importing legacy dicts from Python *tdigest*, but mandatory for serializing and deserializing digests created by *fastDigest*.
+> **Note:** In the "centroids" list, each centroid is represented as a dict with keys "m" (mean) and "c" (count/weight).
+The "max_centroids", "n_values", "min" and "max" keys are optional — if missing, their values are inferred.
+This allows full backward compatibility with dicts created by the *tdigest* Python library.
 
 #### TDigest.from_dict(tdigest_dict)
 
@@ -333,9 +345,9 @@ Static method to create a new TDigest instance from the `tdigest_dict`.
 ```python
 digest = TDigest.from_dict(tdigest_dict)
 
-print(f"{digest}: {digest.n_values} values")
+print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 ```
-    TDigest(max_centroids=3): 101 values
+    TDigest(max_centroids=3): 3 centroids from 101 values
 
 ### Other methods and properties
 
@@ -361,7 +373,11 @@ Returns the number of centroids in the digest.
 
 #### self.n_values
 
-Returns the total number of values ingested.
+Returns the total number of individual values ingested (disregarding weights).
+
+#### self.mass
+
+Returns the total ingested weight. Equivalent to `float(n_values)` if no weighted updates were used.
 
 #### Magic methods
 
