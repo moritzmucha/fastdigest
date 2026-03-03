@@ -120,8 +120,8 @@ impl TDigest {
             count: 0,
             mass: OrderedFloat::from(0.0),
             sum: OrderedFloat::from(0.0),
-            min: OrderedFloat::from(std::f64::NAN),
-            max: OrderedFloat::from(std::f64::NAN),
+            min: OrderedFloat::from(f64::NAN),
+            max: OrderedFloat::from(f64::NAN),
         })
     }
 
@@ -261,7 +261,7 @@ impl TDigest {
 
         let mut pairs: Vec<(OrderedFloat<f64>, f64)> = unsorted_values
             .into_iter()
-            .zip(unsorted_weights.into_iter())
+            .zip(unsorted_weights)
             .map(|(value, weight)| (OrderedFloat::from(value), weight))
             .collect();
         pairs.sort_by(|a, b| a.0.cmp(&b.0));
@@ -473,7 +473,7 @@ impl TDigest {
     }
 
     fn external_merge(
-        centroids: &mut Vec<Centroid>,
+        centroids: &mut [Centroid],
         first: usize,
         middle: usize,
         last: usize,
@@ -548,8 +548,8 @@ impl TDigest {
 
         let count: u128 = digests.iter().map(|d| d.count).sum();
         let mut mass: f64 = 0.0;
-        let mut min = OrderedFloat::from(std::f64::INFINITY);
-        let mut max = OrderedFloat::from(std::f64::NEG_INFINITY);
+        let mut min = OrderedFloat::from(f64::INFINITY);
+        let mut max = OrderedFloat::from(f64::NEG_INFINITY);
 
         let mut start: usize = 0;
         for digest in digests.into_iter() {

@@ -131,10 +131,7 @@ impl PyTDigest {
 
         let centroid_list = PyList::empty(py);
         for centroid in self.digest.centroids() {
-            let tuple = PyTuple::new(
-                py,
-                &[centroid.mean.into_inner(), centroid.weight.into_inner()],
-            )?;
+            let tuple = PyTuple::new(py, [centroid.mean(), centroid.weight()])?;
             centroid_list.append(tuple)?;
         }
         Ok(centroid_list.into())
@@ -204,7 +201,7 @@ impl PyTDigest {
     pub fn quantile(&mut self, q: f64) -> PyResult<f64> {
         flush_cache(self)?;
 
-        if q < 0.0 || q > 1.0 {
+        if !(0.0..=1.0).contains(&q) {
             return Err(PyValueError::new_err("q must be between 0 and 1."));
         }
         if self.digest.is_empty() {
@@ -217,7 +214,7 @@ impl PyTDigest {
     pub fn percentile(&mut self, p: f64) -> PyResult<f64> {
         flush_cache(self)?;
 
-        if p < 0.0 || p > 100.0 {
+        if !(0.0..=100.0).contains(&p) {
             return Err(PyValueError::new_err("p must be between 0 and 100."));
         }
         if self.digest.is_empty() {
@@ -250,8 +247,7 @@ impl PyTDigest {
         }
 
         let centroids = self.digest.centroids();
-        let total_weight: f64 =
-            centroids.iter().map(|c| c.weight.into_inner()).sum();
+        let total_weight: f64 = centroids.iter().map(|c| c.weight()).sum();
         if total_weight == 0.0 {
             return Err(PyValueError::new_err("Total weight is zero."));
         }
@@ -263,7 +259,7 @@ impl PyTDigest {
         let mut trimmed_weight = 0.0;
         for centroid in centroids {
             let c_start = cum_weight;
-            let c_end = cum_weight + centroid.weight.into_inner();
+            let c_end = cum_weight + centroid.weight();
             cum_weight = c_end;
 
             if c_end <= lower_weight_threshold {
@@ -276,7 +272,7 @@ impl PyTDigest {
             let overlap = (c_end.min(upper_weight_threshold)
                 - c_start.max(lower_weight_threshold))
             .max(0.0);
-            trimmed_sum += overlap * centroid.mean.into_inner();
+            trimmed_sum += overlap * centroid.mean();
             trimmed_weight += overlap;
         }
 
@@ -381,8 +377,8 @@ impl PyTDigest {
         let centroid_list = PyList::empty(py);
         for centroid in self.digest.centroids() {
             let centroid_dict = PyDict::new(py);
-            centroid_dict.set_item("m", centroid.mean.into_inner())?;
-            centroid_dict.set_item("c", centroid.weight.into_inner())?;
+            centroid_dict.set_item("m", centroid.mean())?;
+            centroid_dict.set_item("c", centroid.weight())?;
             centroid_list.append(centroid_dict)?;
         }
         dict.set_item("centroids", centroid_list)?;
@@ -404,8 +400,8 @@ impl PyTDigest {
             .map_err(malloc_error)?;
         let mut sum = 0.0;
         let mut mass = 0.0;
-        let mut min = std::f64::NAN;
-        let mut max = std::f64::NAN;
+        let mut min = f64::NAN;
+        let mut max = f64::NAN;
 
         for item in centroids_list.iter() {
             let d = item.cast::<PyDict>()?;
@@ -656,8 +652,8 @@ fn tdigest_fields_equal(d1: &TDigest, d2: &TDigest) -> bool {
 
 /// Helper function to compare two Centroids
 fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
-    (c1.mean - c2.mean).abs() < f64::EPSILON
-        && (c1.weight - c2.weight).abs() < f64::EPSILON
+    (c1.mean() - c2.mean()).abs() < f64::EPSILON
+        && (c1.weight() - c2.weight()).abs() < f64::EPSILON
 }
 
 /// Helper function to safely convert max_centroids to usize
