@@ -12,6 +12,9 @@ def test_merge_all() -> None:
     expected = calculate_sample_quantiles(range(1, 101))
     check_sample_quantiles(merged, expected)
     assert merged.n_values == 100, f"Expected 100 values, got {merged.n_values}"
+    double_merged = merge_all([merged, merged])
+    check_sample_quantiles(double_merged, expected)
+    assert double_merged.n_values == 2 * merged.n_values
     max_c = min_max_centroids
     merged = merge_all(digests, max_centroids=max_c)
     check_sample_quantiles(merged, expected)

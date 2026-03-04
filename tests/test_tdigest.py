@@ -131,26 +131,19 @@ def test_centroids(empty_digest: TDigest) -> None:
     assert isinstance(centroids, list) and len(centroids) == 3
     assert all(isinstance(t, tuple) for t in centroids)
     assert all(isinstance(v, float) for v in centroids[0])
+    assert [t[0] for t in centroids] == [1.0, 2.0, 3.0]
+    assert [t[1] for t in centroids] == [1.0, 1.0, 1.0]
     assert isinstance(empty_digest.centroids, list)
 
 
 # -------------------------------------------------------------------
 # Merge tests (merge, merge_inplace, __add__, __iadd__)
 # -------------------------------------------------------------------
-@pytest.mark.parametrize(
-    "merge_func",
-    [
-        lambda d1, d2: d1.merge(d2),
-        lambda d1, d2: d1 + d2,
-    ],
-)
-def test_merge_operations(
-    merge_func: Callable[[TDigest, TDigest], TDigest],
-) -> None:
+def test_merge() -> None:
     d1 = TDigest.from_values(range(1, 51))
     d2 = TDigest.from_values(range(51, 101))
     expected = calculate_sample_quantiles(range(1, 101))
-    merged = merge_func(d1, d2)
+    merged = d1.merge(d2)
     check_sample_quantiles(merged, expected)
     assert merged.n_values == 100
 
@@ -199,7 +192,7 @@ def test_merge_inplace() -> None:
     "iadd_op",
     [
         lambda d1, d2: d1 + d2,
-        lambda d1, d2: d1.__iadd__(d2) or d1,
+        lambda d1, d2: d1.__iadd__(d2),
     ],
 )
 def test_add_iadd(iadd_op: Callable[[TDigest, TDigest], TDigest]) -> None:
@@ -208,6 +201,9 @@ def test_add_iadd(iadd_op: Callable[[TDigest, TDigest], TDigest]) -> None:
     expected = calculate_sample_quantiles(range(1, 101))
     result = iadd_op(d1, d2)
     check_sample_quantiles(result, expected)
+    double_merged = iadd_op(result, result)
+    check_sample_quantiles(double_merged, expected)
+    assert double_merged.n_values == 200
 
 
 def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
