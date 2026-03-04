@@ -481,6 +481,34 @@ impl PyTDigest {
         })
     }
 
+    /// Returns true if two digests are equal. Caches are flushed
+    /// to ensure accurate results across disparate states.
+    pub fn equals(&self, other: &Self) -> PyResult<bool> {
+        if std::ptr::eq(self, other) {
+            return Ok(true);
+        }
+
+        let (first, second) = order_by_address(self, other);
+        let state1 = lock_and_flush(first)?;
+        let state2 = lock_and_flush(second)?;
+
+        if !tdigest_fields_equal(&state1.digest, &state2.digest) {
+            return Ok(false);
+        }
+
+        let centroids1 = state1.digest.centroids();
+        let centroids2 = state2.digest.centroids();
+        if centroids1.len() != centroids2.len() {
+            return Ok(false);
+        }
+        for (c1, c2) in centroids1.iter().zip(centroids2.iter()) {
+            if !centroids_equal(c1, c2) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     /// TDigest.copy() returns a copy of the instance.
     pub fn copy(&self) -> PyResult<Self> {
         Ok(self.clone())
@@ -536,34 +564,12 @@ impl PyTDigest {
 
     /// Magic method: enables equality checking (==).
     pub fn __eq__(&self, other: &Self) -> PyResult<bool> {
-        if std::ptr::eq(self, other) {
-            return Ok(true);
-        }
-
-        let (first, second) = order_by_address(self, other);
-        let state1 = lock_and_flush(first)?;
-        let state2 = lock_and_flush(second)?;
-
-        if !tdigest_fields_equal(&state1.digest, &state2.digest) {
-            return Ok(false);
-        }
-
-        let centroids1 = state1.digest.centroids();
-        let centroids2 = state2.digest.centroids();
-        if centroids1.len() != centroids2.len() {
-            return Ok(false);
-        }
-        for (c1, c2) in centroids1.iter().zip(centroids2.iter()) {
-            if !centroids_equal(c1, c2) {
-                return Ok(false);
-            }
-        }
-        Ok(true)
+        self.equals(other)
     }
 
     /// Magic method: enables inequality checking (!=).
     pub fn __ne__(&self, other: &Self) -> PyResult<bool> {
-        self.__eq__(other).map(|eq| !eq)
+        self.equals(other).map(|eq| !eq)
     }
 
     /// Magic method: dig1 + dig2 returns dig1.merge(dig2).

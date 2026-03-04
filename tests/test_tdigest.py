@@ -425,13 +425,17 @@ def test_iter() -> None:
 
 
 def test_equality() -> None:
-    d1 = TDigest.from_values([1.0, 2.0, 3.0])
-    d2 = TDigest.from_values([2.0, 1.0, 3.0])
-    d3 = TDigest.from_values([1.0, 2.0, 3.1])
-    d4 = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=3)
+    d1 = TDigest.from_values([1, 2, 3])
+    d2 = TDigest.from_values([2.0, 1.0])
+    d2.update(3.0)
+    assert d1.equals(d2)
+    d1.batch_update([0])
+    d2.update(0)
     assert d1 == d2
+    d3 = TDigest.from_values([0, 1, 2, 3.1])
+    d4 = TDigest.from_values([0, 1, 2, 3.1], max_centroids=3)
     assert d1 != d3
-    assert d1 != d4
+    assert d3 != d4
     empty1 = TDigest()
     empty2 = TDigest()
     assert empty1 == empty2

@@ -26,6 +26,7 @@
   - [self.to_dict()](#selfto_dict)
   - [TDigest.from_dict(tdigest_dict)](#tdigestfrom_dicttdigest_dict)
 - [Other methods and properties](#other-methods-and-properties)
+  - [self.equals(other)](#selfequalsother)
   - [self.copy()](#selfcopy)
   - [self.centroids](#selfcentroids)
   - [self.is_empty](#selfis_empty)
@@ -297,7 +298,7 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 ```
     TDigest(max_centroids=30): 30 centroids from 100 values
 
-> **Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the `max_centroids` parameter for the new instance is automatically determined as the maximum of the input parameters. Otherwise, the specified value is used instead.
+> **Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the new instance inherits the highest `max_centroids` parameter of the input digests. Otherwise, the specified value is used.
 
 ### Dict conversion
 
@@ -351,9 +352,13 @@ print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 
 ### Other methods and properties
 
+### self.equals(other)
+
+Returns `True` if both TDigests have identical centroids and parameters, `False` otherwise. Raises `TypeError` if `other` is not a TDigest.
+
 #### self.copy()
 
-Creates a copy of the instance.
+Returns a copy of the instance.
 
 #### self.centroids
 
@@ -373,15 +378,16 @@ Returns the number of centroids in the digest.
 
 #### self.n_values
 
-Returns the total number of individual values ingested (disregarding weights).
+Returns the total number of individually ingested values (disregarding weights).
 
 #### self.mass
 
-Returns the total ingested weight. Equivalent to `float(n_values)` if no weighted updates were used.
+Returns the total ingested weight. Equivalent to `float(self.n_values)` if no weighted updates were used.
 
 #### Magic methods
 
-- `digest1 == digest2`: returns `True` if both instances have identical centroids and parameters (within f64 precision)
+- `self == other`: like `self.equals(other)`, but allows other types (→ always `False`)
+- `self != other`: like `not self.equals(other)`, but allows other types (→ always `True`)
 - `self + other`: alias for `self.merge(other)`
 - `self += other`: alias for `self.merge_inplace(other)`
 - `bool(digest)`: alias for `not digest.is_empty`

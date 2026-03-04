@@ -99,7 +99,7 @@ class TDigest:
         """
         True if no data has been ingested yet.
 
-        :return: True if empty.
+        :return: True if empty, False otherwise.
         """
         ...
 
@@ -316,6 +316,20 @@ class TDigest:
         """
         ...
 
+    def equals(self, other: "TDigest") -> bool:
+        """
+        Check equality between two TDigest instances.
+
+        Returns True if all centroids are the same and `max_centroids` has the
+        same value, otherwise False.
+
+        Raises TypeError if `other` is not a TDigest.
+
+        :param other: Other TDigest instance.
+        :return: True if equal, False otherwise.
+        """
+        ...
+
     def copy(self) -> "TDigest":
         """
         Returns a copy of the TDigest instance.
@@ -353,7 +367,7 @@ class TDigest:
         """
         Return True if the TDigest is not empty.
 
-        :return: True if not empty.
+        :return: True if not empty, False otherwise.
         """
         ...
 
@@ -383,25 +397,25 @@ class TDigest:
 
     def __eq__(self, other: Any) -> bool:
         """
-        Check equality between two TDigest instances.
+        Check equality between TDigest and another object.
 
-        Returns True if all centroids are the same and `max_centroids` has the
-        same value, otherwise False.
+        Equivalent to `self.equals(other)`, but comparisons with different
+        types will return False instead of raising an error.
 
-        :param other: Other TDigest instance.
-        :return: Bool representing equality.
+        :param other: Any Python object.
+        :return: True if equal, False otherwise.
         """
         ...
 
     def __ne__(self, other: Any) -> bool:
         """
-        Check inequality between two TDigest instances.
+        Check inequality between TDigest and another object.
 
-        Returns False if all centroids are the same and `max_centroids` has the
-        same value, otherwise True.
+        Equivalent to `not self.equals(other)`, but comparisons with different
+        types will return True instead of raising an error.
 
-        :param other: Other TDigest instance.
-        :return: Bool representing inequality.
+        :param other: Any Python object.
+        :return: False if equal, True otherwise.
         """
         ...
 
