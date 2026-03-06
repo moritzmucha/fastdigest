@@ -243,8 +243,6 @@ impl TDigest {
             .map(OrderedFloat::from)
             .collect();
         sorted_values.sort();
-        let sorted_values =
-            sorted_values.into_iter().map(|f| f.into_inner()).collect();
 
         self.merge_sorted(sorted_values)
     }
@@ -271,7 +269,7 @@ impl TDigest {
 
     pub fn merge_sorted(
         &self,
-        sorted_values: Vec<f64>,
+        sorted_values: Vec<OrderedFloat<f64>>,
     ) -> Result<TDigest, TryReserveError> {
         if sorted_values.is_empty() {
             return Ok(self.clone());
@@ -282,8 +280,8 @@ impl TDigest {
         result.mass =
             OrderedFloat::from(self.mass() + (sorted_values.len() as f64));
 
-        let maybe_min = OrderedFloat::from(*sorted_values.first().unwrap());
-        let maybe_max = OrderedFloat::from(*sorted_values.last().unwrap());
+        let maybe_min = *sorted_values.first().unwrap();
+        let maybe_max = *sorted_values.last().unwrap();
 
         if self.mass() > 0.0 {
             result.min = std::cmp::min(self.min, maybe_min);
@@ -305,14 +303,16 @@ impl TDigest {
         let mut iter_sorted_values = sorted_values.iter().peekable();
 
         let mut curr: Centroid = if let Some(c) = iter_centroids.peek() {
-            let val = **iter_sorted_values.peek().unwrap();
-            if c.mean() < val {
+            if c.mean() < iter_sorted_values.peek().unwrap().into_inner() {
                 iter_centroids.next().unwrap().clone()
             } else {
-                Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                Centroid::new(
+                    iter_sorted_values.next().unwrap().into_inner(),
+                    1.0,
+                )
             }
         } else {
-            Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+            Centroid::new(iter_sorted_values.next().unwrap().into_inner(), 1.0)
         };
 
         let mut weight_so_far: f64 = curr.weight();
@@ -324,14 +324,21 @@ impl TDigest {
         {
             let next: Centroid = if let Some(c) = iter_centroids.peek() {
                 if iter_sorted_values.peek().is_none()
-                    || c.mean() < **iter_sorted_values.peek().unwrap()
+                    || c.mean()
+                        < iter_sorted_values.peek().unwrap().into_inner()
                 {
                     iter_centroids.next().unwrap().clone()
                 } else {
-                    Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                    Centroid::new(
+                        iter_sorted_values.next().unwrap().into_inner(),
+                        1.0,
+                    )
                 }
             } else {
-                Centroid::new(*iter_sorted_values.next().unwrap(), 1.0)
+                Centroid::new(
+                    iter_sorted_values.next().unwrap().into_inner(),
+                    1.0,
+                )
             };
 
             let next_sum: f64 = next.mean() * next.weight();
@@ -406,8 +413,7 @@ impl TDigest {
         let mut iter_values_weights = sorted_values_weights.iter().peekable();
 
         let mut curr: Centroid = if let Some(c) = iter_centroids.peek() {
-            let val = iter_values_weights.peek().unwrap().0.into_inner();
-            if c.mean() < val {
+            if c.mean() < iter_values_weights.peek().unwrap().0.into_inner() {
                 iter_centroids.next().unwrap().clone()
             } else {
                 let (val, weight) = *iter_values_weights.next().unwrap();
