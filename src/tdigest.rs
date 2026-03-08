@@ -35,7 +35,8 @@ use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
 use std::collections::TryReserveError;
 
-pub const DEFAULT_MAX_CENTROIDS: usize = 1000;
+pub const TD_SIZE_DEFAULT: usize = 1000;
+pub const TD_SIZE_PLATFORM_MAX: usize = (isize::MAX / 16) as usize;
 
 /// Centroid implementation to the cluster mentioned in the paper.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -214,7 +215,7 @@ impl TDigest {
 
 impl Default for TDigest {
     fn default() -> Self {
-        TDigest::new_with_size(DEFAULT_MAX_CENTROIDS)
+        TDigest::new_with_size(TD_SIZE_DEFAULT)
             .expect("default max size should be allocatable")
     }
 }
@@ -538,7 +539,7 @@ impl TDigest {
                 .iter()
                 .map(|digest| digest.max_size)
                 .max()
-                .unwrap_or(DEFAULT_MAX_CENTROIDS)
+                .unwrap_or(TD_SIZE_DEFAULT)
         };
 
         let n_centroids: usize =

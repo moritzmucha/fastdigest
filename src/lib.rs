@@ -6,10 +6,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 use std::collections::TryReserveError;
 use std::mem;
-use tdigest::{Centroid, TDigest, DEFAULT_MAX_CENTROIDS};
+use tdigest::{Centroid, TDigest, TD_SIZE_DEFAULT, TD_SIZE_PLATFORM_MAX};
 
 const CACHE_SIZE: usize = 256;
-const MAX_MAX_CENTROIDS: i64 = (isize::MAX / 16) as i64;
 
 #[derive(Clone)]
 struct TDigestState {
@@ -22,7 +21,7 @@ struct TDigestState {
 
 impl Default for TDigestState {
     fn default() -> Self {
-        let digest: TDigest = TDigest::new_with_size(DEFAULT_MAX_CENTROIDS)
+        let digest: TDigest = TDigest::new_with_size(TD_SIZE_DEFAULT)
             .expect("default max size should be allocatable");
         Self {
             digest,
@@ -52,7 +51,7 @@ impl Clone for PyTDigest {
 impl PyTDigest {
     /// Constructs a new empty TDigest instance.
     #[new]
-    #[pyo3(signature = (max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
+    #[pyo3(signature = (max_centroids=TD_SIZE_DEFAULT as i64))]
     pub fn new(max_centroids: i64) -> PyResult<Self> {
         let max_cent_valid = validate_max_centroids(max_centroids)?;
         let digest =
@@ -67,7 +66,7 @@ impl PyTDigest {
 
     /// Constructs a new TDigest from a sequence of float values.
     #[staticmethod]
-    #[pyo3(signature = (x, w=None, max_centroids=DEFAULT_MAX_CENTROIDS as i64))]
+    #[pyo3(signature = (x, w=None, max_centroids=TD_SIZE_DEFAULT as i64))]
     pub fn from_values(
         py: Python,
         x: Vec<f64>,
@@ -434,7 +433,7 @@ impl PyTDigest {
             match tdigest_dict.get_item("max_centroids")? {
                 Some(obj) => validate_max_centroids(obj.extract::<i64>()?)?,
                 // If missing or null, set the default value.
-                _ => DEFAULT_MAX_CENTROIDS,
+                _ => TD_SIZE_DEFAULT,
             };
 
         // Check if the "n_values" key exists
@@ -727,17 +726,15 @@ fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
 
 /// Helper function to safely convert max_centroids to usize
 fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
-    if max_centroids < 0 {
-        return Err(PyValueError::new_err(
-            "max_centroids must be a non-negative integer.",
-        ));
-    }
-    if max_centroids > MAX_MAX_CENTROIDS {
+    let max_centroids_usize = usize::try_from(max_centroids).map_err(|_| {
+        PyValueError::new_err("max_centroids must be a non-negative integer.")
+    })?;
+    if max_centroids_usize > TD_SIZE_PLATFORM_MAX {
         return Err(PyValueError::new_err(
             "max_centroids exceeds the platform limit.",
         ));
     }
-    Ok(max_centroids as usize)
+    Ok(max_centroids_usize)
 }
 
 #[inline]
