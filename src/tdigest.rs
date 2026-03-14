@@ -1,35 +1,4 @@
-//! Backend by Paul Meng (https://github.com/MnO2/t-digest)
-//!
-//! T-Digest algorithm in rust
-//!
-//! ## Installation
-//!
-//! Add this to your `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! tdigest = "0.2"
-//! ```
-//!
-//! then you are good to go. If you are using Rust 2015 you have to
-//! ``extern crate tdigest`` to your crate root as well.
-//!
-//! ## Example
-//!
-//! ```rust
-//! use tdigest::TDigest;
-//!
-//! let t = TDigest::new_with_size(100);
-//! let values: Vec<f64> = (1..=1_000_000).map(f64::from).collect();
-//!
-//! let t = t.merge_sorted(values);
-//!
-//! let ans = t.estimate_quantile(0.99);
-//! let expected: f64 = 990_000.0;
-//!
-//! let percentage: f64 = (expected - ans).abs() / expected;
-//! assert!(percentage < 0.01);
-//! ```
+//! Backend originally by Paul Meng (https://github.com/MnO2/t-digest)
 
 use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
@@ -39,7 +8,6 @@ pub const TD_SIZE_DEFAULT: usize = 1000;
 pub const TD_SIZE_PLATFORM_MAX: usize = (isize::MAX / 16) as usize;
 pub const TD_SIZE_GLOBAL_MAX: usize = (i64::MAX / 16) as usize;
 
-/// Centroid implementation to the cluster mentioned in the paper.
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct Centroid {
@@ -98,7 +66,6 @@ impl Default for Centroid {
     }
 }
 
-/// T-Digest to be operated on.
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TDigest {
@@ -270,14 +237,7 @@ impl TDigest {
 
     #[inline]
     pub fn mean(&self) -> f64 {
-        let mass_: f64 = self.mass.into_inner();
-        let sum_: f64 = self.sum.into_inner();
-
-        if mass_ > 0.0 {
-            sum_ / mass_
-        } else {
-            0.0
-        }
+        self.sum() / self.mass()
     }
 
     #[inline]
@@ -644,7 +604,6 @@ impl TDigest {
         Ok(())
     }
 
-    // Merge multiple T-Digests
     pub fn merge_digests(
         digests: Vec<TDigest>,
         max_size: Option<usize>,
@@ -767,8 +726,6 @@ impl TDigest {
 
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
     pub fn estimate_quantile(&self, q: f64) -> f64 {
-        let q = q.clamp(0.0, 1.0);
-
         if self.centroids.len() == 1 {
             return self.centroids[0].mean();
         }
@@ -808,6 +765,77 @@ impl TDigest {
 
         centroid_left.mean() * (1.0 - fraction)
             + centroid_right.mean() * fraction
+    }
+
+    pub fn estimate_quantiles(
+        &self,
+        qs: &[f64],
+    ) -> Result<Vec<f64>, TryReserveError> {
+        let n_centroids = self.centroids.len();
+
+        if n_centroids == 0 {
+            return Ok(vec![]);
+        }
+
+        if n_centroids == 1 {
+            let m = self.centroids[0].mean();
+            return Ok(qs.iter().map(|_| m).collect());
+        }
+
+        let mut cum_left: Vec<f64> = Vec::new();
+        let mut cum_right: Vec<f64> = Vec::new();
+        cum_left.try_reserve_exact(n_centroids)?;
+        cum_right.try_reserve_exact(n_centroids)?;
+
+        let mut cumulative = 0.0;
+        let mut prev_right = 0.0;
+
+        for centroid in &self.centroids {
+            let left = prev_right;
+            let right = (2.0 * cumulative + centroid.weight() - 1.0)
+                / 2.0
+                / (self.mass() - 1.0);
+            cumulative += centroid.weight();
+            prev_right = right;
+            cum_left.push(left);
+            cum_right.push(right);
+        }
+
+        let means: Vec<f64> = self.centroids.iter().map(|c| c.mean()).collect();
+
+        let mut out: Vec<f64> = Vec::new();
+        out.try_reserve_exact(qs.len())?;
+
+        for &q in qs {
+            let idx = cum_right
+                .binary_search_by(|x| x.partial_cmp(&q).unwrap())
+                .unwrap_or_else(|i| i);
+
+            if idx == 0 {
+                out.push(means[0]);
+                continue;
+            }
+
+            if idx >= n_centroids {
+                out.push(means[n_centroids - 1]);
+                continue;
+            }
+
+            let left = cum_left[idx];
+            let right = cum_right[idx];
+            let weight_between = right - left;
+
+            if weight_between == 0.0 {
+                out.push(means[idx]);
+                continue;
+            }
+
+            let fraction = (q - left) / weight_between;
+            let m_left = means[idx - 1];
+            let m_right = means[idx];
+            out.push(m_left * (1.0 - fraction) + m_right * fraction);
+        }
+        Ok(out)
     }
 
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
@@ -859,6 +887,98 @@ impl TDigest {
             / (centroid_right.mean() - centroid_left.mean());
 
         cum_left + fraction * weight_between
+    }
+
+    pub fn estimate_ranks(
+        &self,
+        xs: &[f64],
+    ) -> Result<Vec<f64>, TryReserveError> {
+        let n_centroids = self.centroids.len();
+
+        if n_centroids == 0 {
+            return Ok(vec![]);
+        }
+
+        if n_centroids == 1 {
+            let m = self.centroids[0].mean();
+            let ranks = xs
+                .iter()
+                .map(|&x| {
+                    if x.is_nan() {
+                        f64::NAN
+                    } else {
+                        match m.partial_cmp(&x).unwrap() {
+                            std::cmp::Ordering::Less => 1.0,
+                            std::cmp::Ordering::Equal => 0.5,
+                            std::cmp::Ordering::Greater => 0.0,
+                        }
+                    }
+                })
+                .collect();
+            return Ok(ranks);
+        }
+
+        let mut cum_left: Vec<f64> = Vec::new();
+        let mut cum_right: Vec<f64> = Vec::new();
+        cum_left.try_reserve_exact(n_centroids)?;
+        cum_right.try_reserve_exact(n_centroids)?;
+
+        let mut cumulative = 0.0;
+        let mut prev_right = 0.0;
+
+        for centroid in &self.centroids {
+            let left = prev_right;
+
+            let right = (2.0 * cumulative + centroid.weight() - 1.0)
+                / 2.0
+                / (self.mass() - 1.0);
+
+            cumulative += centroid.weight();
+            prev_right = right;
+
+            cum_left.push(left);
+            cum_right.push(right);
+        }
+
+        let means: Vec<f64> = self.centroids.iter().map(|c| c.mean()).collect();
+
+        let mut out: Vec<f64> = Vec::new();
+        out.try_reserve_exact(xs.len())?;
+
+        for &x in xs {
+            if x.is_nan() {
+                out.push(f64::NAN);
+                continue;
+            }
+            let idx = means
+                .binary_search_by(|m| m.partial_cmp(&x).unwrap())
+                .unwrap_or_else(|i| i);
+
+            if idx == 0 {
+                out.push(0.0);
+                continue;
+            }
+
+            if idx >= n_centroids {
+                out.push(1.0);
+                continue;
+            }
+
+            let left_mean = means[idx - 1];
+            let right_mean = means[idx];
+            let left = cum_left[idx];
+            let right = cum_right[idx];
+            let weight_between = right - left;
+
+            if right_mean == left_mean {
+                out.push(left);
+                continue;
+            }
+
+            let fraction = (x - left_mean) / (right_mean - left_mean);
+            out.push(left + fraction * weight_between);
+        }
+        Ok(out)
     }
 
     pub fn estimate_trimmed_mean(&self, q1: f64, q2: f64) -> f64 {

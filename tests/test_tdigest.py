@@ -11,9 +11,15 @@ from utils import (
     RTOL,
     ATOL,
     DEFAULT_MAX_CENTROIDS,
+    SAMPLE_QUANTILES,
+    SAMPLE_RANKS,
     calculate_sample_quantiles,
+    calculate_sample_ranks,
     check_sample_quantiles,
+    check_sample_ranks,
     check_tdigest_equality,
+    compare_values,
+    rank,
 )
 
 
@@ -280,8 +286,11 @@ def test_quantile_median_min_max(empty_digest: TDigest) -> None:
     data = list(range(2, 199))
     random.shuffle(data)
     d = TDigest.from_values(data)
-    expected = calculate_sample_quantiles(range(2, 199))
+    expected = calculate_sample_quantiles(data)
     check_sample_quantiles(d, expected)
+    results = d.quantile_vec(SAMPLE_QUANTILES)
+    assert isinstance(results, list)
+    compare_values("quantile_vec", SAMPLE_QUANTILES, expected, results)
     with pytest.raises(ValueError):
         empty_digest.quantile(0.5)
     p = d.percentile(50)
@@ -297,15 +306,18 @@ def test_quantile_median_min_max(empty_digest: TDigest) -> None:
 # CDF tests (cdf, probability)
 # -------------------------------------------------------------------
 def test_cdf_methods(empty_digest: TDigest) -> None:
-    d = TDigest.from_values(range(1, 101))
-    rank_est = d.cdf(50)
-    expected_rank = (50 - 1) / (100 - 1)
-    assert 0 <= rank_est <= 1
-    assert math.isclose(rank_est, expected_rank, rel_tol=RTOL, abs_tol=ATOL)
+    data = list(range(2, 199))
+    random.shuffle(data)
+    d = TDigest.from_values(data)
+    expected = calculate_sample_ranks(data)
+    check_sample_ranks(d, expected)
+    results = d.cdf_vec(SAMPLE_RANKS)
+    assert isinstance(results, list)
+    compare_values("cdf_vec", SAMPLE_RANKS, expected, results)
     with pytest.raises(ValueError):
         empty_digest.cdf(50)
     p_est = d.probability(80, 100)
-    expected_p = ((100 - 1) - (80 - 1)) / (100 - 1)
+    expected_p = rank(data, 100) - rank(data, 80)
     assert math.isclose(p_est, expected_p, rel_tol=RTOL, abs_tol=ATOL)
 
 

@@ -15,6 +15,9 @@
   - [self.trimmed_mean(q1, q2)](#selftrimmed_meanq1-q2)
   - [self.min()](#selfmin)
   - [self.max()](#selfmax)
+- [Vectorized mathematical functions](#vectorized-mathematical-functions)
+  - [self.quantile_vec(q)](#selfquantile_vecq)
+  - [self.cdf_vec(x)](#selfcdf_vecx)
 - [Updating a TDigest](#updating-a-tdigest)
   - [self.update(x, w=None)](#selfupdatex-wnone)
   - [self.batch_update(x, w=None)](#selfbatch_updatex-wnone)
@@ -206,6 +209,35 @@ Return the highest ingested value. This is an exact value.
 print(f"Maximum: {digest.max():+.3f}")
 ```
     Maximum: +4.615
+
+### Vectorized mathematical functions
+
+These methods take a sequence (e.g. list, array) argument and return the results as a list.
+They are significantly faster than looping over [`quantile(q)`](#selfquantileq)/[`cdf(x)`](#selfcdfx) when estimating many ($n \gg 1$) values at once.
+
+#### self.quantile_vec(q)
+
+Estimate the values at the quantiles `q` (between 0 and 1).
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest.from_values(range(41))
+results = digest.quantile_vec([0.25, 0.5, 0.75])
+print(results)
+```
+    [10.0, 20.0, 30.0]
+
+#### self.cdf_vec(x)
+
+Estimate the relative ranks (cumulative probabilities) of the values `x`.
+
+```python
+digest = TDigest.from_values(range(41))
+results = digest.cdf_vec([10, 20, 30])
+print(results)
+```
+    [0.25, 0.5, 0.75]
 
 ### Updating a TDigest
 

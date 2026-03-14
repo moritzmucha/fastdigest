@@ -207,6 +207,18 @@ class TDigest:
         """
         ...
 
+    def quantile_vec(self, q: Sequence[float]) -> List[float]:
+        """
+        Estimate the value at the given relative ranks/cumulative probabilities
+        `q`.
+
+        Inverse function of `cdf_vec(x)`.
+
+        :param q: Sequence of floats between 0 and 1.
+        :return: List of estimated quantile values.
+        """
+        ...
+
     def percentile(self, p: Union[float, int]) -> float:
         """
         Estimate the value at a given cumulative probability (percentile).
@@ -247,6 +259,17 @@ class TDigest:
 
         :param x: Value for which to compute the cdf.
         :return: Float between 0 and 1 representing cumulative probability.
+        """
+        ...
+
+    def cdf_vec(self, x: Sequence[float]) -> List[float]:
+        """
+        Estimate the cumulative distribution function (CDF) at the values `x`.
+
+        Inverse function of `quantile_vec(q)`.
+
+        :param x: Sequence of values for which to compute the cdf.
+        :return: List of CDF(x) floats between 0 and 1.
         """
         ...
 

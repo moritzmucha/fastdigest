@@ -378,6 +378,23 @@ impl PyTDigest {
         Ok(state.digest.estimate_quantile(q))
     }
 
+    /// Estimates the quantiles for given cumulative probabilities `q`.
+    pub fn quantile_vec(&self, q: Vec<f64>) -> PyResult<Vec<f64>> {
+        if q.iter().any(|q_i| !(0.0..=1.0).contains(q_i)) {
+            return Err(PyValueError::new_err(
+                "All q values must be between 0 and 1.",
+            ));
+        }
+        let state = lock_flush_check(self)?;
+        let d = &state.digest;
+        let x = match q.len() {
+            0 => vec![],
+            1 | 2 => q.iter().map(|&q_i| d.estimate_quantile(q_i)).collect(),
+            _ => d.estimate_quantiles(&q).map_err(malloc_error)?,
+        };
+        Ok(x)
+    }
+
     /// Estimates the percentile for a given cumulative probability `p` (%).
     pub fn percentile(&self, p: f64) -> PyResult<f64> {
         if !(0.0..=100.0).contains(&p) {
@@ -404,6 +421,18 @@ impl PyTDigest {
     pub fn cdf(&self, x: f64) -> PyResult<f64> {
         let state = lock_flush_check(self)?;
         Ok(state.digest.estimate_rank(x))
+    }
+
+    /// Estimates the ranks (cumulative probabilities) of given values `x`.
+    pub fn cdf_vec(&self, x: Vec<f64>) -> PyResult<Vec<f64>> {
+        let state = lock_flush_check(self)?;
+        let d = &state.digest;
+        let q = match x.len() {
+            0 => vec![],
+            1 | 2 => x.iter().map(|&x_i| d.estimate_rank(x_i)).collect(),
+            _ => d.estimate_ranks(&x).map_err(malloc_error)?,
+        };
+        Ok(q)
     }
 
     /// Estimates the empirical probability of a value being in

@@ -1,5 +1,6 @@
 import sys
 import math
+from bisect import bisect_right
 from typing import Iterable, List, Sequence
 from fastdigest import TDigest
 
@@ -9,6 +10,7 @@ RTOL = 0.000
 ATOL = 1e-12
 DEFAULT_MAX_CENTROIDS = 1000
 SAMPLE_QUANTILES = [0.01, 0.25, 0.5, 0.75, 0.99]
+SAMPLE_RANKS = [-float("inf"), 25.0, 50.0, 75.0, 100.0, float("inf")]
 
 
 def quantile(seq: Sequence[float], q: float):
@@ -42,24 +44,85 @@ def quantile(seq: Sequence[float], q: float):
     return s[lower] * (1 - weight) + s[upper] * weight
 
 
+def rank(seq: Sequence[float], x: float):
+    """
+    Calculate the normalized rank (CDF position) of value x in a sequence of floats
+    using linear interpolation.
+
+    Parameters:
+        seq (Sequence[float]): A sequence of floats.
+        x (float): Value whose rank is requested.
+
+    Returns:
+        float: A number between 0 and 1 representing the relative rank.
+
+    Raises:
+        ValueError: If the sequence is empty.
+    """
+    if not seq:
+        raise ValueError("Sequence must not be empty")
+
+    s = sorted(seq)
+    n = len(s)
+
+    if x <= s[0]:
+        return 0.0
+    if x >= s[-1]:
+        return 1.0
+
+    i = bisect_right(s, x) - 1
+    lo, hi = s[i], s[i + 1]
+
+    if hi == lo:
+        pos = i
+    else:
+        pos = i + (x - lo) / (hi - lo)
+
+    return pos / (n - 1)
+
+
 def calculate_sample_quantiles(
     data: Iterable[float], quantiles: Iterable[float] = SAMPLE_QUANTILES
 ) -> List[float]:
     return [quantile(data, q) for q in quantiles]
 
 
+def calculate_sample_ranks(
+    data: Iterable[float], ranks: Iterable[float] = SAMPLE_RANKS
+) -> List[float]:
+    return [rank(data, x) for x in ranks]
+
+
+def compare_values(
+    func_name: str,
+    parameters: Iterable[float],
+    expected: Iterable[float],
+    results: Iterable[float],
+    rtol: float = RTOL,
+    atol: float = ATOL,
+) -> None:
+    for p, exp, res in zip(parameters, expected, results):
+        assert math.isclose(res, exp, rel_tol=rtol, abs_tol=atol), (
+            f"{func_name}({p}): expected ~{exp}, got {res}"
+        )
+
+
 def check_sample_quantiles(
     digest: TDigest,
     expected: Iterable[float],
     quantiles: Iterable[float] = SAMPLE_QUANTILES,
-    rtol: float = RTOL,
-    atol: float = ATOL,
 ) -> None:
     estimated = [digest.quantile(q) for q in quantiles]
-    for q, exp, est in zip(quantiles, expected, estimated):
-        assert math.isclose(est, exp, rel_tol=rtol, abs_tol=atol), (
-            f"Expected p{int(100 * q):02} ~{exp}, got {est}"
-        )
+    compare_values("quantile", quantiles, expected, estimated)
+
+
+def check_sample_ranks(
+    digest: TDigest,
+    expected: Iterable[float],
+    ranks: Iterable[float] = SAMPLE_RANKS,
+) -> None:
+    estimated = [digest.cdf(x) for x in ranks]
+    compare_values("cdf", ranks, expected, estimated)
 
 
 def check_tdigest_equality(orig: TDigest, new: TDigest) -> None:
