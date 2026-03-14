@@ -70,9 +70,8 @@ impl PyTDigest {
     #[staticmethod]
     #[pyo3(signature = (x, w=None, max_centroids=TD_SIZE_DEFAULT as i64))]
     pub fn from_values(
-        py: Python,
         x: Vec<f64>,
-        w: Option<Py<PyAny>>,
+        w: Option<Bound<'_, PyAny>>,
         max_centroids: i64,
     ) -> PyResult<Self> {
         let max_cent_valid = validate_max_centroids(max_centroids)?;
@@ -86,7 +85,7 @@ impl PyTDigest {
                 }),
             })
         } else {
-            let w_vec = validate_weights(py, w, x.len())?;
+            let w_vec = validate_weights(w, x.len())?;
             let digest = match w_vec {
                 Some(weights) => digest
                     .merge_unsorted_weighted(x, weights)
@@ -262,14 +261,17 @@ impl PyTDigest {
 
     /// Getter property: returns the centroids as a list of tuples.
     #[getter(centroids)]
-    pub fn get_centroids(&self, py: Python) -> PyResult<Py<PyAny>> {
+    pub fn get_centroids<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyList>> {
         let state = lock_and_flush(self)?;
         let centroid_list = PyList::empty(py);
         for centroid in state.digest.centroids() {
-            let tuple = PyTuple::new(py, [centroid.mean(), centroid.weight()])?;
-            centroid_list.append(tuple)?;
+            let t = PyTuple::new(py, [centroid.mean(), centroid.weight()])?;
+            centroid_list.append(t)?;
         }
-        Ok(centroid_list.into())
+        Ok(centroid_list)
     }
 
     /// Merges this digest with another, returning a new TDigest.
@@ -330,15 +332,14 @@ impl PyTDigest {
     #[pyo3(signature = (x, w=None))]
     pub fn batch_update(
         &self,
-        py: Python,
         x: Vec<f64>,
-        w: Option<Py<PyAny>>,
+        w: Option<Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         if x.is_empty() {
             return Ok(());
         }
 
-        let w_vec = validate_weights(py, w, x.len())?;
+        let w_vec = validate_weights(w, x.len())?;
         let mut state = lock_and_flush(self)?;
         state.digest = match w_vec {
             Some(weights) => state
@@ -479,14 +480,20 @@ impl PyTDigest {
     }
 
     /// Returns a binary representation of the digest.
-    pub fn to_bytes(&self, py: Python) -> PyResult<Py<PyBytes>> {
+    pub fn to_bytes<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyBytes>> {
         let state = lock_and_flush(self)?;
         let bytes = state.digest.to_bytes().map_err(malloc_error)?;
-        Ok(PyBytes::new(py, &bytes).into())
+        Ok(PyBytes::new(py, &bytes))
     }
 
     /// Returns a dict representation of the digest.
-    pub fn to_dict(&self, py: Python) -> PyResult<Py<PyAny>> {
+    pub fn to_dict<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyDict>> {
         let state = lock_and_flush(self)?;
         let dict = PyDict::new(py);
 
@@ -503,7 +510,7 @@ impl PyTDigest {
             centroid_list.append(centroid_dict)?;
         }
         dict.set_item("centroids", centroid_list)?;
-        Ok(dict.into())
+        Ok(dict)
     }
 
     /// Returns true if two digests are equal. Caches are flushed
@@ -551,13 +558,16 @@ impl PyTDigest {
 
     /// Returns a tuple (callable, args) so that pickle can reconstruct
     /// the object via TDigest.from_bytes(state)
-    pub fn __reduce__(&self, py: Python) -> PyResult<Py<PyAny>> {
+    pub fn __reduce__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyTuple>> {
         let bytes = self.to_bytes(py)?;
         let cls = py.get_type::<PyTDigest>();
         let from_bytes = cls.getattr("from_bytes")?;
         let args = PyTuple::new(py, &[bytes])?;
         let recon = PyTuple::new(py, &[from_bytes, args.into_any()])?;
-        Ok(recon.into())
+        Ok(recon)
     }
 
     /// Magic method: bool(TDigest) returns the negation of is_empty().
@@ -571,9 +581,12 @@ impl PyTDigest {
     }
 
     // Magic method: returns an iterator over the list of centroids.
-    pub fn __iter__(&self, py: Python) -> PyResult<Py<PyAny>> {
+    pub fn __iter__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         let centroid_list = self.get_centroids(py)?;
-        centroid_list.call_method0(py, "__iter__")
+        centroid_list.call_method0("__iter__")
     }
 
     /// Magic method: repr/str(TDigest) returns a string representation.
@@ -771,25 +784,22 @@ fn validate_weight(weight: f64) -> PyResult<f64> {
 /// Helper function to validate `w`. If scalar, creates Vec of length `x_len`.
 #[inline]
 fn validate_weights(
-    py: Python,
-    w: Option<Py<PyAny>>,
+    w: Option<Bound<'_, PyAny>>,
     x_len: usize,
 ) -> PyResult<Option<Vec<f64>>> {
     match w {
         None => Ok(None),
         Some(obj) => {
-            let any = obj.as_ref();
-            if let Ok(single_weight) = any.extract::<f64>(py) {
+            if let Ok(single_weight) = obj.extract::<f64>() {
                 let w = validate_weight(single_weight)?;
                 return Ok(Some(vec![w; x_len]));
             }
 
-            let w_vec: Vec<f64> =
-                any.extract::<Vec<f64>>(py).map_err(|_| {
-                    PyTypeError::new_err(
-                        "w (weight) must be a number or sequence of numbers.",
-                    )
-                })?;
+            let w_vec: Vec<f64> = obj.extract::<Vec<f64>>().map_err(|_| {
+                PyTypeError::new_err(
+                    "w (weight) must be a number or sequence of numbers.",
+                )
+            })?;
             if w_vec.len() != x_len {
                 return Err(PyValueError::new_err(
                     "w (weight) sequence must have the same length as x.",
