@@ -15,7 +15,8 @@ SAMPLE_RANKS = [-float("inf"), 25.0, 50.0, 75.0, 100.0, float("inf")]
 
 def quantile(seq: Sequence[float], q: float):
     """
-    Calculate the q-th quantile of a sequence of floats using linear interpolation.
+    Calculate the q-th quantile of a sequence of floats using linear
+    interpolation.
 
     Parameters:
         seq (Sequence[float]): A sequence of floats.
@@ -46,8 +47,8 @@ def quantile(seq: Sequence[float], q: float):
 
 def rank(seq: Sequence[float], x: float):
     """
-    Calculate the normalized rank (CDF position) of value x in a sequence of floats
-    using linear interpolation.
+    Calculate the normalized rank (CDF position) of value x in a sequence of
+    floats using linear interpolation.
 
     Parameters:
         seq (Sequence[float]): A sequence of floats.
@@ -79,6 +80,24 @@ def rank(seq: Sequence[float], x: float):
         pos = i + (x - lo) / (hi - lo)
 
     return pos / (n - 1)
+
+
+def generate_normal(n: int, mu: float = 0.0, sigma: float = 1.0) -> List[float]:
+    """
+    Generate `n` samples from the normal distribution with mean `mu` and
+    standard deviation `sigma` using the Box-Muller method.
+    """
+    out = []
+    phi = (math.sqrt(5.0) - 1.0) / 2.0
+    for i in range(n):
+        u1 = (i + 0.5) / n
+        u2 = ((i + 0.5) * phi) % 1.0
+        u1 = max(u1, 1e-15)
+        r = math.sqrt(-2.0 * math.log(u1))
+        theta = 2.0 * math.pi * u2
+        z = r * math.cos(theta)
+        out.append(mu + sigma * z)
+    return out
 
 
 def calculate_sample_quantiles(

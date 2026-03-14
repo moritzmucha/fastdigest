@@ -26,7 +26,7 @@
 
 ## Features
 
-- **Online statistics**: Compute highly accurate estimates of quantiles, the CDF, and derived quantities such as the (trimmed) mean.
+- **Online statistics**: Compute highly accurate estimates of quantiles, the CDF, the trimmed mean, MAD, and more.
 - **Updating**: Update a t-digest incrementally with streaming data or batches of large datasets.
 - **Merging**: Merge many t-digests into one, enabling parallel compute operations such as map-reduce.
 - **Serialization**: Transform t-digests to/from dict or binary format, or simply use the `pickle` module.
@@ -64,7 +64,7 @@ pip install target/wheels/fastdigest-0.10.0-<platform-tag>.whl
 
 ## Usage
 
-The following examples are intended to give you a quick start. See the [API reference](https://github.com/moritzmucha/fastdigest/blob/main/API.md) for the full documentation.
+The following examples are intended to give you a quick start. See the [API reference](./API.md) for the full documentation.
 
 ### Initialization
 

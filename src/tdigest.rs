@@ -349,7 +349,7 @@ impl TDigest {
             return Ok(self.clone());
         }
 
-        let mut result = TDigest::new_with_size(self.max_size())?;
+        let mut result = TDigest::new_with_size(self.max_size)?;
         result.count = self.count + sorted_values.len() as u128;
         result.mass =
             OrderedFloat::from(self.mass() + (sorted_values.len() as f64));
@@ -462,7 +462,7 @@ impl TDigest {
             .map(|(_, weight)| *weight)
             .sum();
 
-        let mut result = TDigest::new_with_size(self.max_size())?;
+        let mut result = TDigest::new_with_size(self.max_size)?;
         result.count = self.count + sorted_values_weights.len() as u128;
         result.mass = OrderedFloat::from(self.mass() + total_new_weight);
 
@@ -1013,6 +1013,117 @@ impl TDigest {
         }
 
         trimmed_sum / trimmed_weight
+    }
+
+    pub fn estimate_mad(&self) -> f64 {
+        let median = self.estimate_quantile(0.5);
+
+        let mut pairs: Vec<(f64, f64)> = self
+            .centroids
+            .iter()
+            .map(|c| ((c.mean() - median).abs(), c.weight()))
+            .collect();
+
+        pairs.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let half = self.mass() / 2.0;
+        let mut cumulative = 0.0;
+        let mut prev_cum;
+        let mut prev_dev = pairs[0].0;
+
+        for (dev, w) in pairs.into_iter() {
+            prev_cum = cumulative;
+            cumulative += w;
+
+            if cumulative >= half {
+                if cumulative == prev_cum {
+                    return dev;
+                }
+                let frac = (half - prev_cum) / (cumulative - prev_cum);
+                return prev_dev * (1.0 - frac) + dev * frac;
+            }
+
+            prev_dev = dev;
+        }
+
+        self.centroids
+            .last()
+            .map(|c| (c.mean() - median).abs())
+            .unwrap_or(f64::NAN)
+    }
+
+    pub fn estimate_std(&self) -> f64 {
+        self.estimate_mad() * 1.482602218505602 // (Φ⁻¹(3/4))⁻¹
+    }
+
+    /// Approximate error function (Abramowitz-Stegun 7.1.26).
+    fn erf_approx(x: f64) -> f64 {
+        let a1: f64 = 0.254829592;
+        let a2: f64 = -0.284496736;
+        let a3: f64 = 1.421413741;
+        let a4: f64 = -1.453152027;
+        let a5: f64 = 1.061405429;
+        let p: f64 = 0.3275911;
+
+        let x_abs = x.abs();
+        let t = 1.0 / (1.0 + p * x_abs);
+        let y = 1.0
+            - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t)
+                * (-x_abs * x_abs).exp();
+        y * x.signum()
+    }
+
+    fn normal_cdf(x: f64) -> f64 {
+        0.5 * (1.0 + Self::erf_approx(x / 2f64.sqrt()))
+    }
+
+    /// Compute a weighted Kolmogorov-Smirnov statistic.
+    fn ks_statistic_against_normal(&self) -> f64 {
+        let n = self.mass();
+        let mu = self.mean();
+        let sigma = self.estimate_std();
+
+        if sigma == 0.0 {
+            return 1.0;
+        }
+
+        let mut cum_before: f64 = 0.0;
+        let mut d_max: f64 = 0.0;
+
+        for c in &self.centroids {
+            let w = c.weight();
+            let mean = c.mean();
+            let cum_after = cum_before + w;
+
+            let f_before = cum_before / n;
+            let f_after = cum_after / n;
+
+            let z = (mean - mu) / sigma;
+            let theo = Self::normal_cdf(z);
+
+            let d1 = (f_after - theo).abs();
+            let d2 = (theo - f_before).abs();
+
+            if d1 > d_max {
+                d_max = d1;
+            }
+            if d2 > d_max {
+                d_max = d2;
+            }
+
+            cum_before = cum_after;
+        }
+        d_max
+    }
+
+    /// Perform a one-sample KS test against a normal distribution.
+    pub fn test_cdf_is_normal(&self, alpha: f64) -> bool {
+        let d = self.ks_statistic_against_normal();
+        let n = self.mass();
+        let d_crit = (-0.5 * (alpha / 2.0).ln()).sqrt() / n.sqrt();
+        d <= d_crit
     }
 
     fn maybe_recompute_totals(&mut self, old_count: u128) {

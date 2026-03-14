@@ -487,6 +487,30 @@ impl PyTDigest {
         Ok(state.digest.max())
     }
 
+    /// Estimates the median absolute deviation.
+    pub fn mad(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_mad())
+    }
+
+    /// Estimates the standard deviation.
+    pub fn std(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_std())
+    }
+
+    /// Performs a KS test to determine normality.
+    #[pyo3(signature = (alpha=0.05))]
+    pub fn is_normal(&self, alpha: f64) -> PyResult<bool> {
+        if !(alpha > 0.0 && alpha < 1.0) {
+            return Err(PyValueError::new_err(
+                "alpha must be strictly greater than 0 and less than 1.",
+            ));
+        }
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.test_cdf_is_normal(alpha))
+    }
+
     /// Returns a binary representation of the digest.
     pub fn to_bytes<'py>(
         &self,

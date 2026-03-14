@@ -15,6 +15,9 @@
   - [self.trimmed_mean(q1, q2)](#selftrimmed_meanq1-q2)
   - [self.min()](#selfmin)
   - [self.max()](#selfmax)
+  - [self.mad()](#selfmad)
+  - [self.std()](#selfstd)
+  - [self.is_normal()](#selfis_normal)
 - [Vectorized mathematical functions](#vectorized-mathematical-functions)
   - [self.quantile_vec(q)](#selfquantile_vecq)
   - [self.cdf_vec(x)](#selfcdf_vecx)
@@ -242,6 +245,53 @@ digest = TDigest.from_values(range(-50, 51))
 print(f"Maximum: {digest.max():+.1f}")
 ```
     Maximum: +50.0
+
+#### self.mad()
+
+Estimates the median absolute deviation (MAD) of the distribution.
+
+```python
+skewed_data = np.random.standard_gamma(5, 10_000)
+digest = TDigest.from_values(skewed_data)
+
+print(f"MAD: {digest.mad():.3f}")
+```
+    MAD: 1.429
+
+#### self.std()
+
+Estimates the standard deviation of the distribution by taking $\frac{\textrm{MAD}}{\Phi^{-1} (\frac{3}{4})}$.
+
+Alias for [`mad() * 1.482602218505602`](#selfmad).
+
+```python
+normally_distributed_data = np.random.normal(0, 1, 10_000)
+digest = TDigest.from_values(normally_distributed_data)
+
+print(f"Standard deviation: {digest.std():.3f}")
+```
+    Standard deviation: 1.005
+
+> **Note:** This estimation is valid **only for normally distributed data**.
+
+#### self.is_normal()
+
+Performs a Kolmogorov-Smirnov test to determine if the ingested data follows a normal distribution.
+
+```python
+normally_distributed_data = np.random.normal(0, 1, 10_000)
+normal_digest = TDigest.from_values(normally_distributed_data)
+
+skewed_data = np.random.standard_gamma(5, 10_000)
+skewed_digest = TDigest.from_values(skewed_data)
+
+print(normal_digest.is_normal())
+print(skewed_digest.is_normal())
+```
+    True
+    False
+
+> **Note:** The significance threshold of the test can be adjusted via the optional argument `alpha` (0.05 by default).
 
 ### Vectorized mathematical functions
 

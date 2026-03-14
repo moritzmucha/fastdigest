@@ -321,6 +321,40 @@ class TDigest:
         """
         ...
 
+    def mad(self) -> float:
+        """
+        Estimates the median absolute deviation (MAD) of the distribution.
+
+        :return: Estimated MAD.
+        """
+        ...
+
+    def std(self) -> float:
+        """
+        Estimates the standard deviation of the distribution by taking
+        MAD / Φ⁻¹(3/4).
+
+        Only valid for normally distributed data.
+
+        :return: Estimated standard deviation.
+        """
+        ...
+
+    def is_normal(self, alpha: float = 0.05) -> bool:
+        """
+        Performs a Kolmogorov-Smirnov test to determine if the ingested data
+        follows a normal distribution.
+
+        The significance level `alpha` controls how strict the test is:
+        - higher `alpha` → more likely to reject normality
+        - lower `alpha` → more likely to accept normality
+
+        :param optional alpha:
+            Significance level (`0 < alpha < 1`). Default is 0.05.
+        :return: True if normal, False otherwise.
+        """
+        ...
+
     def to_bytes(self) -> bytes:
         """
         Returns a serialized binary representation of the TDigest.

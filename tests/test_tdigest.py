@@ -19,6 +19,8 @@ from utils import (
     check_sample_ranks,
     check_tdigest_equality,
     compare_values,
+    generate_normal,
+    quantile,
     rank,
 )
 
@@ -344,6 +346,42 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
         empty_digest.trimmed_mean(0.01, 0.99)
     true_sum = sum(values)
     assert math.isclose(d.sum(), true_sum, rel_tol=RTOL, abs_tol=ATOL)
+
+
+# -------------------------------------------------------------------
+# Deviation tests (mad, std, is_normal)
+# -------------------------------------------------------------------
+
+
+def test_mad(empty_digest: TDigest) -> None:
+    values = list(range(1, 101))
+    d = TDigest.from_values(values)
+    median = quantile(values, 0.5)
+    devs = sorted([abs(v - median) for v in values])
+    n = len(devs)
+    pos = (n - 1) * 0.5
+    lo = int(pos)
+    hi = lo + 1
+    expected_mad = (
+        devs[lo]
+        if hi >= n
+        else devs[lo] * (1 - (pos - lo)) + devs[hi] * (pos - lo)
+    )
+    assert math.isclose(d.mad(), expected_mad, rel_tol=0.02, abs_tol=ATOL)
+    d = TDigest.from_values([42.0, 42.0, 42.0])
+    assert d.mad() == 0.0
+    with pytest.raises(ValueError):
+        empty_digest.mad()
+
+
+def test_std_and_is_normal() -> None:
+    sigma = 2.0
+    data = generate_normal(1000, sigma=sigma)
+    d = TDigest.from_values(data)
+    assert d.is_normal()
+    assert math.isclose(d.std(), sigma, rel_tol=0.02, abs_tol=ATOL)
+    d = TDigest.from_values(range(1001))
+    assert not d.is_normal()
 
 
 # -------------------------------------------------------------------
