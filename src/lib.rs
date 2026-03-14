@@ -530,20 +530,34 @@ impl PyTDigest {
             return Ok(true);
         }
 
+        fn summary_equal(d1: &TDigest, d2: &TDigest) -> bool {
+            (d1.max_size() == d2.max_size())
+                && (d1.mass() == d2.mass())
+                && (d1.sum() == d2.sum())
+                && ((d1.min().is_nan() && d2.min().is_nan())
+                    || (d1.min() == d2.min()))
+                && ((d1.max().is_nan() && d2.max().is_nan())
+                    || (d1.max() == d2.max()))
+                && (d1.count() == d2.count())
+        }
+
+        fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
+            (c1.mean() == c2.mean()) && (c1.weight() == c2.weight())
+        }
+
         let (first, second) = order_by_address(self, other);
-        let state1 = lock_and_flush(first)?;
-        let state2 = lock_and_flush(second)?;
+        let digest1 = &lock_and_flush(first)?.digest;
+        let digest2 = &lock_and_flush(second)?.digest;
+        let cents1 = digest1.centroids();
+        let cents2 = digest2.centroids();
 
-        if !tdigest_fields_equal(&state1.digest, &state2.digest) {
+        if !summary_equal(digest1, digest2) {
             return Ok(false);
         }
-
-        let centroids1 = state1.digest.centroids();
-        let centroids2 = state2.digest.centroids();
-        if centroids1.len() != centroids2.len() {
+        if cents1.len() != cents2.len() {
             return Ok(false);
         }
-        for (c1, c2) in centroids1.iter().zip(centroids2.iter()) {
+        for (c1, c2) in cents1.iter().zip(cents2.iter()) {
             if !centroids_equal(c1, c2) {
                 return Ok(false);
             }
@@ -748,24 +762,6 @@ fn order_by_address<'a>(
     } else {
         (second, first)
     }
-}
-
-/// Helper function to compare two TDigest instances
-fn tdigest_fields_equal(d1: &TDigest, d2: &TDigest) -> bool {
-    (d1.max_size() == d2.max_size())
-        && (d1.count() == d2.count())
-        && (d1.mass() - d2.mass()).abs() < f64::EPSILON
-        && (d1.sum() - d2.sum()).abs() < f64::EPSILON
-        && ((d1.min().is_nan() && d2.min().is_nan())
-            || ((d1.min() - d2.min()).abs() < f64::EPSILON))
-        && ((d1.max().is_nan() && d2.max().is_nan())
-            || ((d1.max() - d2.max()).abs() < f64::EPSILON))
-}
-
-/// Helper function to compare two Centroids
-fn centroids_equal(c1: &Centroid, c2: &Centroid) -> bool {
-    (c1.mean() - c2.mean()).abs() < f64::EPSILON
-        && (c1.weight() - c2.weight()).abs() < f64::EPSILON
 }
 
 /// Helper function to safely convert max_centroids to usize
