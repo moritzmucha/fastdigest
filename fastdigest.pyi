@@ -14,7 +14,7 @@ class TDigest:
     """
     Class containing the t-digest data structure.
 
-    :param max_centroids:
+    :param optional max_centroids:
         Number of centroids to maintain. A lower value enables a
         smaller memory footprint and faster computation speed at the
         cost of some accuracy. 0 disables compression. Default is 1000.
@@ -22,9 +22,9 @@ class TDigest:
 
     def __init__(self, max_centroids: int = 1000) -> None:
         """
-        Create an empty new TDigest instance.
+        Creates an empty new TDigest instance.
 
-        :param max_centroids:
+        :param optional max_centroids:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
             cost of some accuracy. 0 disables compression. Default is 1000.
@@ -33,19 +33,19 @@ class TDigest:
 
     @staticmethod
     def from_values(
-        x: Sequence[Union[float, int]],
-        w: Optional[Union[Sequence[Union[float, int]], float, int]] = None,
+        x: Sequence[float],
+        w: Optional[Union[Sequence[float], float]] = None,
         max_centroids: int = 1000,
     ) -> "TDigest":
         """
-        Create a new TDigest of a sequence of numerical values.
+        Creates a new TDigest from a sequence of numeric values.
 
-        :param x: Sequence of float or int values.
-        :param w:
-            Optional weights. This can be either a sequence of the same length
-            as `x` or a scalar that will be used as the weight for the entire
-            batch.
-        :param max_centroids:
+        :param x: Sequence of numeric values.
+        :param optional w:
+            Weights. This can be either a sequence of the same length as `x`,
+            or a scalar that will be used as the weight for the entire batch.
+            If `None` (default), each value has a weight of 1.
+        :param optional max_centroids:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
             cost of some accuracy. 0 disables compression. Default is 1000.
@@ -137,12 +137,12 @@ class TDigest:
 
     def merge(self, other: "TDigest") -> "TDigest":
         """
-        Merge this TDigest with another, returning a new instance.
+        Merges this TDigest with another, returning a new instance.
 
         Equivalent to the `+` operator.
 
-        The resulting TDigest will use the higher of the two instances'
-        `max_centroids` parameters.
+        If the instances have different `max_centroids` parameters, the result
+        will use the higher value.
 
         :param other: Other TDigest instance.
         :return: New TDigest representing the merged data.
@@ -151,7 +151,7 @@ class TDigest:
 
     def merge_inplace(self, other: "TDigest") -> None:
         """
-        Merge another TDigest into `self`, modifying the calling object
+        Merges another TDigest into `self`, modifying the calling object
         in-place.
 
         Equivalent to the `+=` operator.
@@ -162,54 +162,47 @@ class TDigest:
 
     def batch_update(
         self,
-        x: Sequence[Union[float, int]],
-        w: Optional[Union[Sequence[Union[float, int]], float, int]] = None,
+        x: Sequence[float],
+        w: Optional[Union[Sequence[float], float]] = None,
     ) -> None:
         """
-        Update the TDigest in-place with a sequence of numbers.
-
-        This directly performs a merge, which is faster than looping over
-        `update` in most cases.
+        Updates the TDigest in-place with a sequence of numeric values.
 
         :param x: Sequence of values to add.
-        :param w:
-            Optional weights. This can be either a sequence of the same length
-            as `x` or a scalar that will be used as the weight for the entire
-            batch.
+        :param optional w:
+            Weights. This can be either a sequence of the same length as `x`,
+            or a scalar that will be used as the weight for the entire batch.
+            If `None` (default), each value has a weight of 1.
         """
         ...
 
-    def update(
-        self,
-        x: Union[float, int],
-        w: Optional[Union[float, int]] = None,
-    ) -> None:
+    def update(self, x: float, w: Optional[float] = None) -> None:
         """
-        Update the TDigest in-place with a single value.
+        Updates the TDigest in-place with a numeric value.
 
-        This writes to a stack-allocated buffer before merging, which can be
-        significantly faster than `batch_update` if you have to iteratively
-        add one observed value at a time, e.g. in streaming applications.
+        Optimized for low-latency single updates (by writing to an internal
+        buffer that is merged lazily).
 
-        :param x: Single value to add.
-        :param w: Optional weight for `x`.
+        :param x: Value to add.
+        :param optional w: Weight for `x`. Default is `None` (1).
         """
         ...
 
     def quantile(self, q: float) -> float:
         """
-        Estimate the value at a given cumulative probability (quantile).
+        Estimates the value at the given relative rank/cumulative probability
+        `q`.
 
         Inverse function of `cdf(x)`.
 
-        :param q: Float between 0 and 1 representing cumulative probability.
+        :param q: Float between 0 and 1.
         :return: Estimated quantile value.
         """
         ...
 
     def quantile_vec(self, q: Sequence[float]) -> List[float]:
         """
-        Estimate the value at the given relative ranks/cumulative probabilities
+        Estimates the value at the given relative ranks/cumulative probabilities
         `q`.
 
         Inverse function of `cdf_vec(x)`.
@@ -219,9 +212,9 @@ class TDigest:
         """
         ...
 
-    def percentile(self, p: Union[float, int]) -> float:
+    def percentile(self, p: float) -> float:
         """
-        Estimate the value at a given cumulative probability (percentile).
+        Estimates the value at a given cumulative probability (percentile).
 
         Equivalent to `quantile(p/100)`.
 
@@ -232,7 +225,7 @@ class TDigest:
 
     def median(self) -> float:
         """
-        Estimate the median value.
+        Estimates the median value.
 
         Equivalent to `quantile(0.5)`.
 
@@ -240,9 +233,9 @@ class TDigest:
         """
         ...
 
-    def iqr(self, q1: float, q2: float) -> float:
+    def iqr(self) -> float:
         """
-        Estimate the interquartile range (IQR).
+        Estimates the interquartile range (IQR).
 
         Equivalent to `quantile(0.75) - quantile(0.25)`.
 
@@ -252,44 +245,42 @@ class TDigest:
 
     def cdf(self, x: float) -> float:
         """
-        Estimate the cumulative distribution function (CDF) at the value `x`,
-        aka the cumulative probability or relative rank.
+        Estimates the cumulative distribution function (CDF) at the value `x`.
 
         Inverse function of `quantile(q)`.
 
-        :param x: Value for which to compute the cdf.
+        :param x: Value for which to compute the CDF.
         :return: Float between 0 and 1 representing cumulative probability.
         """
         ...
 
     def cdf_vec(self, x: Sequence[float]) -> List[float]:
         """
-        Estimate the cumulative distribution function (CDF) at the values `x`.
+        Estimates the cumulative distribution function (CDF) at the values `x`.
 
         Inverse function of `quantile_vec(q)`.
 
-        :param x: Sequence of values for which to compute the cdf.
+        :param x: Sequence of values for which to compute the CDF.
         :return: List of CDF(x) floats between 0 and 1.
         """
         ...
 
     def probability(self, x1: float, x2: float) -> float:
         """
-        Estimate the probability of finding a value in the interval
+        Estimates the probability of finding a value in the interval
         [`x1`, `x2`].
 
         Equivalent to `cdf(x2) - cdf(x1)`.
 
+        :param x1: Lower bound of the interval.
+        :param x2: Upper bound of the interval.
         :return: Float between 0 and 1 representing probability.
         """
         ...
 
     def sum(self) -> float:
         """
-        Return the sum of all ingested values.
-
-        This is an exact value (aside from accumulated floating-point error),
-        not an estimate.
+        Returns the sum of all ingested values.
 
         :return: Sum of all values.
         """
@@ -297,10 +288,7 @@ class TDigest:
 
     def mean(self) -> float:
         """
-        Calculate the arithmetic mean of all ingested values.
-
-        This is an exact value (aside from accumulated floating-point error),
-        not an estimate.
+        Returns the arithmetic mean of all ingested values.
 
         :return: Arithmetic mean.
         """
@@ -308,20 +296,18 @@ class TDigest:
 
     def trimmed_mean(self, q1: float, q2: float) -> float:
         """
-        Estimate the trimmed mean (truncated mean) of the data,
+        Estimates the trimmed mean (truncated mean) of the data,
         excluding values below the `q1` and above the `q2` quantiles.
 
-        :param q1: Lower quantile threshold (0 <= q1 < q2).
-        :param q2: Upper quantile threshold (q1 < q2 <= 1).
+        :param q1: Lower quantile threshold (`0 <= q1 < q2`).
+        :param q2: Upper quantile threshold (`q1 < q2 <= 1`).
         :return: Trimmed mean value.
         """
         ...
 
     def min(self) -> float:
         """
-        Return the minimum of all ingested values.
-
-        This is an exact value, not an estimate.
+        Returns the minimum of all ingested values.
 
         :return: Minimum value.
         """
@@ -329,9 +315,7 @@ class TDigest:
 
     def max(self) -> float:
         """
-        Return the maximum of all ingested values.
-
-        This is an exact value, not an estimate.
+        Returns the maximum of all ingested values.
 
         :return: Maximum value.
         """
@@ -345,9 +329,9 @@ class TDigest:
         """
         ...
 
-    def to_dict(self) -> Dict[str, List[Dict[str, float]]]:
+    def to_dict(self) -> Dict[str, Union[float, int, List[Dict[str, float]]]]:
         """
-        Return a dictionary representation of the TDigest.
+        Returns a dictionary representation of the TDigest.
 
         The returned dict contains a "centroids" list, where each centroid
         is represented as a dict with keys "m" and "c".
@@ -359,10 +343,10 @@ class TDigest:
 
     def equals(self, other: "TDigest") -> bool:
         """
-        Check equality between two TDigest instances.
+        Checks equality between two TDigest instances.
 
-        Returns True if all centroids are the same and `max_centroids` has the
-        same value, otherwise False.
+        Returns True if all centroids, properties, and `max_centroids` are
+        exactly identical, otherwise False.
 
         Raises TypeError if `other` is not a TDigest.
 
@@ -406,7 +390,7 @@ class TDigest:
 
     def __bool__(self) -> bool:
         """
-        Return True if the TDigest is not empty.
+        Returns True if the TDigest is not empty.
 
         :return: True if not empty, False otherwise.
         """
@@ -414,7 +398,7 @@ class TDigest:
 
     def __len__(self) -> int:
         """
-        Return the number of centroids in the TDigest.
+        Returns the number of centroids in the TDigest.
 
         :return: Number of centroids.
         """
@@ -422,7 +406,7 @@ class TDigest:
 
     def __iter__(self) -> Iterator[Tuple[float, float]]:
         """
-        Return an iterator over the list of centroids.
+        Returns an iterator over the list of centroids.
 
         :return: Iterator over centroid (mean, weight) tuples.
         """
@@ -430,7 +414,7 @@ class TDigest:
 
     def __repr__(self) -> str:
         """
-        Return a string representation of the TDigest.
+        Returns a string representation of the TDigest.
 
         :return: String representation of the TDigest.
         """
@@ -478,6 +462,7 @@ class TDigest:
         Equivalent to `self.merge_inplace(other)`, but using the `+=` operator.
 
         :param other: Other TDigest instance.
+        :return: The modified TDigest instance.
         """
         ...
 
@@ -485,18 +470,16 @@ def merge_all(
     digests: Iterable[TDigest], max_centroids: Optional[int] = None
 ) -> TDigest:
     """
-    Merge an iterable of TDigest instances into a single TDigest.
+    Merge an iterable of TDigests into a single new instance.
 
-    If `max_centroids` is provided, this value will be set in the new TDigest.
-
-    Otherwise, the resulting TDigest will use the maximum of the parameters of
-    the input instances.
+    If `max_centroids` is provided, the new instance will use this value.
+    Otherwise, will inherit the largest `max_centroids` parameter found in the
+    input TDigests.
 
     :param digests: Iterable of TDigest instances to merge.
     :param optional max_centroids:
         Parameter to be used for the new instance.
-        If None, the value is determined from the source TDigests.
-        Default is None.
+        If `None` (default), the value is determined from the input TDigests.
     :return: New TDigest representing the merged data.
     """
     ...

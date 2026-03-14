@@ -21,7 +21,7 @@
 - [Updating a TDigest](#updating-a-tdigest)
   - [self.update(x, w=None)](#selfupdatex-wnone)
   - [self.batch_update(x, w=None)](#selfbatch_updatex-wnone)
-- [Merging TDigest objects](#merging-tdigest-objects)
+- [Merging TDigests](#merging-tdigests)
   - [self.merge(other)](#selfmergeother)
   - [self.merge_inplace(other)](#selfmerge_inplaceother)
   - [merge_all(digests)](#merge_alldigests)
@@ -30,41 +30,47 @@
   - [TDigest.from_dict(tdigest_dict)](#tdigestfrom_dicttdigest_dict)
   - [self.to_bytes()](#selfto_bytes)
   - [TDigest.from_bytes(data)](#tdigestfrom_bytesdata)
-- [Other methods and properties](#other-methods-and-properties)
+- [Comparison](#comparison)
   - [self.equals(other)](#selfequalsother)
+- [Other methods and properties](#other-methods-and-properties)
   - [self.copy()](#selfcopy)
-  - [self.centroids](#selfcentroids)
-  - [self.is_empty](#selfis_empty)
   - [self.max_centroids](#selfmax_centroids)
-  - [self.n_centroids](#selfn_centroids)
-  - [self.n_values](#selfn_values)
   - [self.mass](#selfmass)
-  - [Magic methods](#magic-methods)
+  - [self.n_values](#selfn_values)
+  - [self.n_centroids](#selfn_centroids)
+  - [self.is_empty](#selfis_empty)
+  - [self.centroids](#selfcentroids)
+  - [Magic methods / operators](#magic-methods--operators)
 
 ### Initialization
 
 #### TDigest()
 
-Create a new TDigest instance by simply calling the class init method.
+Creates a new TDigest instance.
 
 ```python
 from fastdigest import TDigest
 
 digest = TDigest()
-digest
+print(digest)
 ```
     TDigest(max_centroids=1000)
 
 > **Note:** The `max_centroids` parameter controls how large the data structure is allowed to grow. A lower value means more compression, enabling a smaller memory footprint and faster computation speed at the cost of some precision.
-The default value of 1000 offers a great balance of speed and very high precision, but even 100 centroids can yield quantile estimation with single-decimal accuracy.
-Setting `max_centroids` to 0 disables compression entirely. This will incur a significant performance cost on all operations and is not recommended.
+>
+> The default value of 1000 offers a great balance of speed and high precision.
+>
+> Setting `max_centroids` to 0 disables compression entirely. This will incur a significant performance cost on all operations and is not recommended.
 
 #### TDigest.from_values(x, w=None)
 
-Static method to initialize a TDigest directly from any sequence of numerical values `x`. The optional weights `w` can be either a sequence of the same length as `x` or a scalar that will be used as the weight for the entire batch.
+Creates a TDigest directly from any sequence of numeric values `x`. The optional weights `w` can be either a sequence of the same length as `x`, or a scalar that will be used as the weight for the entire batch.
+
+Static method.
 
 ```python
 import numpy as np
+from fastdigest import TDigest
 
 digest = TDigest.from_values([2.71, 3.14, 1.42])  # from list
 digest = TDigest.from_values((42,))               # from tuple
@@ -84,13 +90,18 @@ print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 
 #### self.quantile(q)
 
-Estimate the value at the quantile `q` (between 0 and 1).
+Estimates the value at the quantile `q` (between 0 and 1).
 
-This is the inverse function of [cdf(x)](#selfcdfx).
+Inverse function of [`cdf(x)`](#selfcdfx).
+
+Also available as vectorized [`quantile_vec(q)`](#selfquantile_vecq).
 
 ```python
-# using a standard normal distribution
-digest = TDigest.from_values(np.random.normal(0, 1, 10_000))
+from fastdigest import TDigest
+import numpy as np
+
+normally_distributed_data = np.random.normal(0, 1, 10_000)
+digest = TDigest.from_values(normally_distributed_data)
 
 print(f"         Median: {digest.quantile(0.5):.3f}")
 print(f"99th percentile: {digest.quantile(0.99):.3f}")
@@ -100,9 +111,13 @@ print(f"99th percentile: {digest.quantile(0.99):.3f}")
 
 #### self.percentile(p)
 
-Estimate the value at the `p`th percentile. Alias for `quantile(p/100)`.
+Estimates the value at the `p`th percentile.
+
+Alias for [`quantile(p/100)`](#selfquantileq).
 
 ```python
+digest = TDigest.from_values(normally_distributed_data)
+
 print(f"         Median: {digest.percentile(50):.3f}")
 print(f"99th percentile: {digest.percentile(99):.3f}")
 ```
@@ -111,29 +126,41 @@ print(f"99th percentile: {digest.percentile(99):.3f}")
 
 #### self.median()
 
-Estimate the median value. Alias for `quantile(0.5)`.
+Estimates the median value.
+
+Alias for [`quantile(0.5)`](#selfquantileq).
 
 ```python
+digest = TDigest.from_values(normally_distributed_data)
+
 print(f"Median: {digest.median():.3f}")
 ```
     Median: 0.001
 
 #### self.iqr()
 
-Estimate the interquartile range (IQR), calculated as the 75th minus the 25th percentile.
+Estimates the interquartile range (IQR).
+
+Alias for [`quantile(0.75) - quantile(0.25)`](#selfquantileq).
 
 ```python
+digest = TDigest.from_values(normally_distributed_data)
+
 print(f"IQR: {digest.iqr():.3f}")
 ```
     IQR: 1.334
 
 #### self.cdf(x)
 
-Estimate the relative rank (cumulative probability) of the value `x`.
+Estimates the relative rank (cumulative probability) of the value `x`.
 
-This is the inverse function of [quantile(q)](#selfquantileq).
+Inverse function of [`quantile(q)`](#selfquantileq).
+
+Also available as vectorized [`cdf_vec(x)`](#selfcdf_vecx).
 
 ```python
+digest = TDigest.from_values(normally_distributed_data)
+
 print(f"cdf(0.0) = {digest.cdf(0.0):.3f}")
 print(f"cdf(1.0) = {digest.cdf(1.0):.3f}")
 ```
@@ -142,42 +169,44 @@ print(f"cdf(1.0) = {digest.cdf(1.0):.3f}")
 
 #### self.probability(x1, x2)
 
-Estimate the probability of finding a value in the interval [`x1`, `x2`].
+Estimates the probability of finding a value in the interval [`x1`, `x2`].
+
+Alias for [`cdf(x2) - cdf(x1)`](#selfcdfx).
 
 ```python
+digest = TDigest.from_values(normally_distributed_data)
 prob = digest.probability(-2.0, 2.0)
 prob_pct = 100 * prob
+
 print(f"Probability of value between ±2: {prob_pct:.1f}%")
 ```
     Probability of value between ±2: 95.4%
 
-### self.sum()
+#### self.sum()
 
-Return the sum of all ingested values. This is an exact value (aside from accumulated floating-point error).
+Returns the sum of all ingested values.
 
 ```python
-data = list(range(11))
-digest = TDigest.from_values(data)
+digest = TDigest.from_values(range(11))
 
 print(f"Sum: {digest.sum()}")
 ```
     Sum: 55.0
 
-### self.mean()
+#### self.mean()
 
-Calculate the arithmetic mean of all ingested values. This is an exact value (aside from accumulated floating-point error).
+Returns the arithmetic mean of the distribution.
 
 ```python
-data = list(range(11))
-digest = TDigest.from_values(data)
+digest = TDigest.from_values(range(11))
 
 print(f"Mean value: {digest.mean()}")
 ```
     Mean value: 5.0
 
-### self.trimmed_mean(q1, q2)
+#### self.trimmed_mean(q1, q2)
 
-Estimate the truncated mean between the two quantiles `q1` and `q2`.
+Estimates the truncated mean between the two quantiles `q1` and `q2`.
 
 ```python
 data = list(range(11))
@@ -194,21 +223,25 @@ print(f"Trimmed mean: {trimmed_mean}")
 
 #### self.min()
 
-Return the lowest ingested value. This is an exact value.
+Returns the lowest ingested value.
 
 ```python
-print(f"Minimum: {digest.min():+.3f}")
+digest = TDigest.from_values(range(-50, 51))
+
+print(f"Minimum: {digest.min():+.1f}")
 ```
-    Minimum: -3.545
+    Minimum: -50.0
 
 #### self.max()
 
-Return the highest ingested value. This is an exact value.
+Returns the highest ingested value.
 
 ```python
-print(f"Maximum: {digest.max():+.3f}")
+digest = TDigest.from_values(range(-50, 51))
+
+print(f"Maximum: {digest.max():+.1f}")
 ```
-    Maximum: +4.615
+    Maximum: +50.0
 
 ### Vectorized mathematical functions
 
@@ -217,7 +250,7 @@ They are significantly faster than looping over [`quantile(q)`](#selfquantileq)/
 
 #### self.quantile_vec(q)
 
-Estimate the values at the quantiles `q` (between 0 and 1).
+Estimates the values at the quantiles `q` (between 0 and 1).
 
 ```python
 from fastdigest import TDigest
@@ -230,7 +263,7 @@ print(results)
 
 #### self.cdf_vec(x)
 
-Estimate the relative ranks (cumulative probabilities) of the values `x`.
+Estimates the relative ranks (cumulative probabilities) of the values `x`.
 
 ```python
 digest = TDigest.from_values(range(41))
@@ -243,9 +276,11 @@ print(results)
 
 #### self.update(x, w=None)
 
-Update a digest in-place with a single value `x`, with optional weight `w`.
+Updates a digest in-place with a single value `x`, with optional weight `w`.
 
 ```python
+from fastdigest import TDigest
+
 digest = TDigest.from_values([1, 2, 3, 4, 5, 6])
 digest.update(7)
 digest.update(42, w=5.0)
@@ -254,13 +289,15 @@ print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass}")
 ```
     TDigest(max_centroids=1000): 8 values, combined weight of 12.0
 
-> **Note:** This writes to a stack-allocated buffer before merging, which is significantly faster than `batch_update` for rapid iteration with one value (or few values) at a time, e.g. in streaming applications.
+> **Note:** This writes to a stack-allocated buffer before merging, which is significantly faster than [`batch_update`](#selfbatch_updatex-wnone) for small ad-hoc updates, e.g. in streaming applications.
 
 #### self.batch_update(x, w=None)
 
-Update a digest in-place by merging a sequence of many values `x` at once. The optional weights `w` can be either a sequence of the same length as `x` or a scalar that will be used as the weight for the entire batch.
+Updates a digest in-place by merging a sequence of many values `x` at once. The optional weights `w` can be either a sequence of the same length as `x`, or a scalar that will be used as the weight for the entire batch.
 
 ```python
+import numpy as np
+
 digest = TDigest()
 digest.batch_update([1, 2, 3, 4, 5, 6])
 digest.batch_update(np.arange(7, 11))  # using numpy array
@@ -275,15 +312,19 @@ print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass}")
 ```
     TDigest(max_centroids=1000): 15 values, combined weight of 18.0
 
-> **Note:** This directly performs a merge, which is faster than looping over `update` if you have the data in advance.
+> **Note:** This directly performs a merge, which is faster than looping over [`update`](#selfupdatex-wnone) if you have the data in advance.
 
-### Merging TDigest objects
+### Merging TDigests
 
 #### self.merge(other)
 
-Use this method or the `+` operator to create a new TDigest instance from two digests.
+Creates a new TDigest instance from two digests.
+
+Alias: [`+` operator](#magic-methods--operators)
 
 ```python
+from fastdigest import TDigest
+
 digest1 = TDigest.from_values(range(50), max_centroids=1000)
 digest2 = TDigest.from_values(range(50, 101), max_centroids=3)
 
@@ -297,7 +338,9 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 
 #### self.merge_inplace(other)
 
-Use this method or the `+=` operator to locally update a TDigest with the centroids from an `other`.
+Updates a digest in-place with the centroids from an `other` TDigest.
+
+Alias: [`+=` operator](#magic-methods--operators)
 
 ```python
 digest = TDigest.from_values(range(50), max_centroids=30)
@@ -313,7 +356,9 @@ print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 
 #### merge_all(digests)
 
-Use this function to easily merge a list (or other iterable) of many TDigests.
+Creates a new TDigest instance from an iterable of `digests` that are efficiently merged in a single operation.
+
+Module-level function.
 
 ```python
 from fastdigest import merge_all
@@ -332,16 +377,17 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 ```
     TDigest(max_centroids=30): 30 centroids from 100 values
 
-> **Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the new instance inherits the highest `max_centroids` parameter of the input digests. Otherwise, the specified value is used.
+> **Note:** This function has an optional argument `max_centroids`. If `None` (default), the new instance inherits the largest `max_centroids` parameter of the input digests. Otherwise, the specified value is used.
 
 ### Serialization
 
 #### self.to_dict()
 
-Obtain a dictionary representation of the TDigest.
+Returns a dictionary representation of the TDigest.
 
 ```python
 import json
+from fastdigest import TDigest
 
 digest = TDigest.from_values(range(101), max_centroids=3)
 tdigest_dict = digest.to_dict()
@@ -374,23 +420,25 @@ print(json.dumps(tdigest_dict, indent=2))
 ```
 
 > **Note:** In the "centroids" list, each centroid is represented as a dict with keys "m" (mean) and "c" (count/weight).
-The "max_centroids", "mass", "sum", "min", "max" and "n_values" keys are optional — if missing, their values are inferred.
+The "max_centroids", "mass", "sum", "min", "max" and "n_values" keys are optional — if missing, their values are inferred from the centroids/set to default.
 This allows full backward compatibility with dicts created by the *tdigest* Python library.
 
 #### TDigest.from_dict(tdigest_dict)
 
-Static method to create a new TDigest instance from the `tdigest_dict`.
+Creates a new TDigest instance from the `tdigest_dict`.
+
+Static method.
 
 ```python
-digest = TDigest.from_dict(tdigest_dict)
+restored = TDigest.from_dict(tdigest_dict)
 
-print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
+print(f"{restored}: {len(restored)} centroids from {restored.n_values} values")
 ```
     TDigest(max_centroids=3): 3 centroids from 101 values
 
 #### self.to_bytes()
 
-Obtain a serialized binary representation of the TDigest.
+Returns a serialized binary representation of the TDigest.
 
 ```python
 digest = TDigest.from_values(range(101), max_centroids=3)
@@ -403,7 +451,9 @@ with open("digest.bin", "wb") as f:
 
 #### TDigest.from_bytes(data)
 
-Static method to create a new TDigest instance from the serialized binary `data`.
+Creates a new TDigest instance from the serialized binary `data`.
+
+Static method.
 
 ```python
 with open("digest.bin", "rb") as f:
@@ -413,48 +463,67 @@ print(f"{restored}: {len(restored)} centroids from {restored.n_values} values")
 ```
     TDigest(max_centroids=3): 3 centroids from 101 values
 
+<br>
+
+> **Note:** You can also use the `pickle` module for serialization. This uses [`to_bytes`](#selfto_bytes)/[`from_bytes`](#tdigestfrom_bytesdata) internally but produces a different format that is not interchangeable with TDigest's native methods.
+
+### Comparison
+
+#### self.equals(other)
+
+Returns `True` if both TDigests have identical centroids, properties and `max_centroids`, otherwise `False`.
+
+Raises `TypeError` if `other` is not a TDigest.
+
+Alternative (without type strictness): [`==`, `!=` operators](#magic-methods--operators)
+
+```python
+from fastdigest import TDigest
+
+digest = TDigest.from_values(range(101))
+restored = TDigest.from_dict(digest.to_dict())
+print(f"digest == restored: {digest.equals(restored)}")
+```
+    digest == restored: True
+
 ### Other methods and properties
-
-### self.equals(other)
-
-Returns `True` if both TDigests have identical centroids and parameters, `False` otherwise. Raises `TypeError` if `other` is not a TDigest.
 
 #### self.copy()
 
 Returns a copy of the instance.
 
-#### self.centroids
-
-Returns the centroids as a list of (mean, weight) tuples.
-
-#### self.is_empty
-
-Returns `True` if no data has been ingested yet.
-
 #### self.max_centroids
 
-Returns the `max_centroids` parameter of the instance. Can also be used to change it.
+Returns the `max_centroids` parameter. Can also be assigned to, changing future behavior of the instance.
 
-#### self.n_centroids
+#### self.mass
 
-Returns the number of centroids in the digest.
+Returns the total ingested weight. Equivalent to [`float(n_values)`](#selfn_values) if no weighted updates were used.
 
 #### self.n_values
 
 Returns the total number of individually ingested values (disregarding weights).
 
-#### self.mass
+#### self.n_centroids
 
-Returns the total ingested weight. Equivalent to `float(self.n_values)` if no weighted updates were used.
+Returns the number of centroids in the digest.
 
-#### Magic methods
+#### self.is_empty
 
-- `self == other`: like `self.equals(other)`, but allows other types (→ always `False`)
-- `self != other`: like `not self.equals(other)`, but allows other types (→ always `True`)
-- `self + other`: alias for `self.merge(other)`
-- `self += other`: alias for `self.merge_inplace(other)`
-- `bool(digest)`: alias for `not digest.is_empty`
-- `len(digest)`: alias for `digest.n_centroids`
-- `iter(digest)`: returns an iterator over `digest.centroids`
-- `copy(digest)`, `deepcopy(digest)`: alias for `digest.copy()`
+Returns `True` if no data has been ingested yet.
+
+#### self.centroids
+
+Returns the centroids as a list of (mean, weight) tuples.
+
+#### Magic methods / operators
+
+- `self == other`: alias for [`self.equals(other)`](#selfequalsother) but with `TypeError` suppressed → other types return `False`
+- `self != other`: alias for [`not self.equals(other)`](#selfequalsother) but with `TypeError` suppressed → other types return `True`
+- `self + other`: alias for [`self.merge(other)`](#selfmergeother)
+- `self += other`: alias for [`self.merge_inplace(other)`](#selfmerge_inplaceother)
+- `bool(digest)`: alias for [`not digest.is_empty`](#selfis_empty)
+- `len(digest)`: alias for [`digest.n_centroids`](#selfn_centroids)
+- `iter(digest)`: returns an iterator over [`digest.centroids`](#selfcentroids)
+- `copy(digest)`, `deepcopy(digest)`: alias for [`digest.copy()`](#selfcopy)
 - `str(digest)`, `repr(digest)`: returns a string representation
