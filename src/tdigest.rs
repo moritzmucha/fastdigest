@@ -812,6 +812,10 @@ impl TDigest {
 
     /// Function by Andy Lok (https://github.com/andylokandy/tdigests)
     pub fn estimate_rank(&self, x: f64) -> f64 {
+        if x.is_nan() {
+            return f64::NAN;
+        }
+
         if self.centroids.len() == 1 {
             match self.centroids[0].mean().partial_cmp(&x).unwrap() {
                 Ordering::Less => return 1.0,
