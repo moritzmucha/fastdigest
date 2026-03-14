@@ -85,6 +85,7 @@ impl PyTDigest {
                 }),
             })
         } else {
+            validate_values(&x)?;
             let w_vec = validate_weights(w, x.len())?;
             let digest = match w_vec {
                 Some(weights) => digest
@@ -347,6 +348,7 @@ impl PyTDigest {
             return Ok(());
         }
 
+        validate_values(&x)?;
         let w_vec = validate_weights(w, x.len())?;
         let mut state = lock_and_flush(self)?;
         state.digest = match w_vec {
@@ -363,6 +365,7 @@ impl PyTDigest {
     #[inline]
     #[pyo3(signature = (x, w=None))]
     pub fn update(&self, x: f64, w: Option<f64>) -> PyResult<()> {
+        validate_value(x)?;
         let weight = validate_weight(w.unwrap_or(1.0))?;
         let mut state = lock_state(self)?;
         record_observation(&mut state, x, weight)?;
@@ -775,10 +778,26 @@ fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
 }
 
 #[inline]
+fn validate_value(value: f64) -> PyResult<f64> {
+    if !value.is_finite() {
+        return Err(PyValueError::new_err("Values must be finite."));
+    }
+    Ok(value)
+}
+
+#[inline]
+fn validate_values(values: &[f64]) -> PyResult<()> {
+    for &x in values {
+        validate_value(x)?;
+    }
+    Ok(())
+}
+
+#[inline]
 fn validate_weight(weight: f64) -> PyResult<f64> {
     if !weight.is_finite() || weight <= 0.0 {
         return Err(PyValueError::new_err(
-            "weight must be finite and greater than 0.",
+            "Weights must be finite and greater than 0.",
         ));
     }
     Ok(weight)

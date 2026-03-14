@@ -81,6 +81,8 @@ def test_from_values(values: Sequence[int]) -> None:
     with pytest.raises(ValueError):
         TDigest.from_values(values, max_centroids=-1)
     with pytest.raises(ValueError):
+        TDigest.from_values([float("nan")])
+    with pytest.raises(ValueError):
         TDigest.from_values(values, w=-1)
 
 
@@ -270,7 +272,11 @@ def test_weighted_updates() -> None:
     assert d.mass == 10.0
     assert d.sum() == 20.0
     with pytest.raises(ValueError):
+        d.update(float("nan"))
+    with pytest.raises(ValueError):
         d.update(1, w=0)
+    with pytest.raises(ValueError):
+        d.batch_update([float("nan")])
     with pytest.raises(ValueError):
         d.batch_update([1, 2], w=[1])
     with pytest.raises(ValueError):
