@@ -316,29 +316,33 @@ tdigest_dict = digest.to_dict()
 
 print(json.dumps(tdigest_dict, indent=2))
 ```
+```
+{
+  "max_centroids": 3,
+  "mass": 101.0,
+  "sum": 5050.0,
+  "min": 0.0,
+  "max": 100.0,
+  "n_values": 101,
+  "centroids": [
     {
-      "max_centroids": 3,
-      "min": 0.0,
-      "max": 100.0,
-      "n_values": 101,
-      "centroids": [
-        {
-          "m": 10.5,
-          "c": 22.0
-        },
-        {
-          "m": 49.5,
-          "c": 56.0
-        },
-        {
-          "m": 89.0,
-          "c": 23.0
-        }
-      ]
+      "m": 10.5,
+      "c": 22.0
+    },
+    {
+      "m": 49.5,
+      "c": 56.0
+    },
+    {
+      "m": 89.0,
+      "c": 23.0
     }
+  ]
+}
+```
 
 > **Note:** In the "centroids" list, each centroid is represented as a dict with keys "m" (mean) and "c" (count/weight).
-The "max_centroids", "min", "max" and "n_values" keys are optional — if missing, their values are inferred.
+The "max_centroids", "mass", "sum", "min", "max" and "n_values" keys are optional — if missing, their values are inferred.
 This allows full backward compatibility with dicts created by the *tdigest* Python library.
 
 #### TDigest.from_dict(tdigest_dict)

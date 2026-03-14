@@ -176,6 +176,14 @@ impl PyTDigest {
                 Some(obj) => validate_max_centroids(obj.extract::<i64>()?)?,
                 _ => TD_SIZE_DEFAULT,
             };
+        let mass: f64 = match tdigest_dict.get_item("mass")? {
+            Some(obj) => obj.extract()?,
+            _ => mass,
+        };
+        let sum: f64 = match tdigest_dict.get_item("sum")? {
+            Some(obj) => obj.extract()?,
+            _ => sum,
+        };
         let min: f64 = match tdigest_dict.get_item("min")? {
             Some(obj) => obj.extract()?,
             _ => min,
@@ -498,6 +506,8 @@ impl PyTDigest {
         let dict = PyDict::new(py);
 
         dict.set_item("max_centroids", state.digest.max_size())?;
+        dict.set_item("mass", state.digest.mass())?;
+        dict.set_item("sum", state.digest.sum())?;
         dict.set_item("min", state.digest.min())?;
         dict.set_item("max", state.digest.max())?;
         dict.set_item("n_values", state.digest.count())?;

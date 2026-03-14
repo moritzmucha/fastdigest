@@ -333,13 +333,14 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
 # -------------------------------------------------------------------
 def test_to_from_dict() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
-    d.update(6.0)
     d_dict = d.to_dict()
     assert isinstance(d_dict, dict)
     new_d = TDigest.from_dict(d_dict)
     check_tdigest_equality(d, new_d)
-    assert d.mean() == new_d.mean() == 3.0
-    d = TDigest.from_values(range(1, 101), max_centroids=3)
+    assert d.mean() == new_d.mean() == 2.0
+    d = TDigest(max_centroids=3)
+    d.batch_update(range(1, 101), 99.9)
+    d.update(42, math.e)
     d_dict = d.to_dict()
     new_d = TDigest.from_dict(d_dict)
     check_tdigest_equality(d, new_d)
