@@ -453,7 +453,7 @@ impl PyTDigest {
 
     /// Returns the sum of the data.
     pub fn sum(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
+        let state = lock_and_flush(self)?;
         Ok(state.digest.sum())
     }
 
