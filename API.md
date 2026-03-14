@@ -22,9 +22,11 @@
   - [self.merge(other)](#selfmergeother)
   - [self.merge_inplace(other)](#selfmerge_inplaceother)
   - [merge_all(digests)](#merge_alldigests)
-- [Dict conversion](#dict-conversion)
+- [Serialization](#serialization)
   - [self.to_dict()](#selfto_dict)
   - [TDigest.from_dict(tdigest_dict)](#tdigestfrom_dicttdigest_dict)
+  - [self.to_bytes()](#selfto_bytes)
+  - [TDigest.from_bytes(data)](#tdigestfrom_bytesdata)
 - [Other methods and properties](#other-methods-and-properties)
   - [self.equals(other)](#selfequalsother)
   - [self.copy()](#selfcopy)
@@ -300,7 +302,7 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 
 > **Note:** This function has an optional `max_centroids` keyword argument. If `None` (default), the new instance inherits the highest `max_centroids` parameter of the input digests. Otherwise, the specified value is used.
 
-### Dict conversion
+### Serialization
 
 #### self.to_dict()
 
@@ -347,6 +349,31 @@ Static method to create a new TDigest instance from the `tdigest_dict`.
 digest = TDigest.from_dict(tdigest_dict)
 
 print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
+```
+    TDigest(max_centroids=3): 3 centroids from 101 values
+
+#### self.to_bytes()
+
+Obtain a serialized binary representation of the TDigest.
+
+```python
+digest = TDigest.from_values(range(101), max_centroids=3)
+
+with open("digest.bin", "wb") as f:
+    f.write(digest.to_bytes())
+```
+
+> **Note:** This is *much* faster and more efficient than [`to_dict`](#selfto_dict).
+
+#### TDigest.from_bytes(data)
+
+Static method to create a new TDigest instance from the serialized binary `data`.
+
+```python
+with open("digest.bin", "rb") as f:
+    restored = TDigest.from_bytes(f.read())
+
+print(f"{restored}: {len(restored)} centroids from {restored.n_values} values")
 ```
     TDigest(max_centroids=3): 3 centroids from 101 values
 

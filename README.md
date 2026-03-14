@@ -29,7 +29,7 @@
 - **Online statistics**: Compute highly accurate estimates of quantiles, the CDF, and derived quantities such as the (trimmed) mean.
 - **Updating**: Update a t-digest incrementally with streaming data or batches of large datasets.
 - **Merging**: Merge many t-digests into one, enabling parallel compute operations such as map-reduce.
-- **Serialization**: Use the `to_dict`/`from_dict` methods or the `pickle` module for serialization.
+- **Serialization**: Transform t-digests to/from dict or binary format, or simply use the `pickle` module.
 - **Easy API**: The *fastDigest* API is designed to be intuitive and to keep high overlap with popular libraries.
 - **Blazing fast**: Thanks to its Rust backbone, this module is up to hundreds of times faster than other Python implementations.
 

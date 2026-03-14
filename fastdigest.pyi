@@ -53,6 +53,16 @@ class TDigest:
         ...
 
     @staticmethod
+    def from_bytes(data: bytes) -> "TDigest":
+        """
+        Deserialize a TDigest from its binary representation.
+
+        :param data: Binary representation produced by `to_bytes()`.
+        :return: TDigest instance.
+        """
+        ...
+
+    @staticmethod
     def from_dict(tdigest_dict: Dict[str, Any]) -> "TDigest":
         """
         Construct a TDigest from a dictionary representation.
@@ -301,6 +311,14 @@ class TDigest:
         This is an exact value, not an estimate.
 
         :return: Maximum value.
+        """
+        ...
+
+    def to_bytes(self) -> bytes:
+        """
+        Returns a serialized binary representation of the TDigest.
+
+        :return: Binary representation of the TDigest.
         """
         ...
 

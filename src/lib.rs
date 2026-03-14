@@ -3,10 +3,12 @@ mod tdigest;
 use parking_lot::{Mutex, MutexGuard};
 use pyo3::exceptions::{PyKeyError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 use std::collections::TryReserveError;
 use std::mem;
-use tdigest::{Centroid, TDigest, TD_SIZE_DEFAULT, TD_SIZE_PLATFORM_MAX};
+use tdigest::{
+    BytesError, Centroid, TDigest, TD_SIZE_DEFAULT, TD_SIZE_PLATFORM_MAX,
+};
 
 const CACHE_SIZE: usize = 256;
 
@@ -97,6 +99,38 @@ impl PyTDigest {
                     ..TDigestState::default()
                 }),
             })
+        }
+    }
+
+    /// Reconstructs a TDigest from its binary representation.
+    #[staticmethod]
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        match TDigest::from_bytes(data) {
+            Ok(digest) => Ok(Self {
+                state: Mutex::new(TDigestState {
+                    digest,
+                    ..TDigestState::default()
+                }),
+            }),
+            Err(BytesError::MemError(e)) => Err(malloc_error(e)),
+            Err(BytesError::CorruptData) => {
+                Err(PyValueError::new_err("Data is corrupt."))
+            }
+            Err(BytesError::EmptyData) => {
+                Err(PyValueError::new_err("Data is empty."))
+            }
+            Err(BytesError::WrongArch) => Err(PyValueError::new_err(
+                "Data requires 64-bit architecture to load into TDigest.",
+            )),
+            Err(BytesError::WrongFormat) => Err(PyValueError::new_err(
+                "Data is not in fastDigest binary format.",
+            )),
+            Err(BytesError::WrongVersion) => {
+                Err(PyValueError::new_err(format!(
+                    "Data format version is incompatible with fastDigest v{}",
+                    env!("CARGO_PKG_VERSION")
+                )))
+            }
         }
     }
 
@@ -444,6 +478,13 @@ impl PyTDigest {
         Ok(state.digest.max())
     }
 
+    /// Returns a binary representation of the digest.
+    pub fn to_bytes(&self, py: Python) -> PyResult<Py<PyBytes>> {
+        let state = lock_and_flush(self)?;
+        let bytes = state.digest.to_bytes().map_err(malloc_error)?;
+        Ok(PyBytes::new(py, &bytes).into())
+    }
+
     /// Returns a dict representation of the digest.
     pub fn to_dict(&self, py: Python) -> PyResult<Py<PyAny>> {
         let state = lock_and_flush(self)?;
@@ -509,14 +550,14 @@ impl PyTDigest {
     }
 
     /// Returns a tuple (callable, args) so that pickle can reconstruct
-    /// the object via TDigest.from_dict(state)
+    /// the object via TDigest.from_bytes(state)
     pub fn __reduce__(&self, py: Python) -> PyResult<Py<PyAny>> {
-        let state = self.to_dict(py)?;
+        let bytes = self.to_bytes(py)?;
         let cls = py.get_type::<PyTDigest>();
-        let from_dict = cls.getattr("from_dict")?;
-        let args = PyTuple::new(py, &[state])?;
-        let recon_tuple = PyTuple::new(py, &[from_dict, args.into_any()])?;
-        Ok(recon_tuple.into())
+        let from_bytes = cls.getattr("from_bytes")?;
+        let args = PyTuple::new(py, &[bytes])?;
+        let recon = PyTuple::new(py, &[from_bytes, args.into_any()])?;
+        Ok(recon.into())
     }
 
     /// Magic method: bool(TDigest) returns the negation of is_empty().

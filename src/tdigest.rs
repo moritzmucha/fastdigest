@@ -37,6 +37,7 @@ use std::collections::TryReserveError;
 
 pub const TD_SIZE_DEFAULT: usize = 1000;
 pub const TD_SIZE_PLATFORM_MAX: usize = (isize::MAX / 16) as usize;
+pub const TD_SIZE_GLOBAL_MAX: usize = (i64::MAX / 16) as usize;
 
 /// Centroid implementation to the cluster mentioned in the paper.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -111,6 +112,11 @@ pub struct TDigest {
 }
 
 impl TDigest {
+    const MAGIC: [u8; 8] = *b"FASTDIG~";
+    const VERSION: u32 = 1;
+    const HEADER_BYTES: usize = 80; // beginning of centroids in binary format
+    const PADDING_BYTES: usize = 4; // HEADER_BYTES - sum(used header bytes)
+
     pub fn new_with_size(max_size: usize) -> Result<Self, TryReserveError> {
         let mut centroids: Vec<Centroid> = Vec::new();
         centroids.try_reserve_exact(max_size)?;
@@ -153,6 +159,111 @@ impl TDigest {
             ];
             Self::merge_digests(digests, Some(max_size))
         }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, BytesError> {
+        #[inline]
+        fn read<const N: usize>(bytes: &[u8], offset: &mut usize) -> [u8; N] {
+            let mut out = [0u8; N];
+            out.copy_from_slice(&bytes[*offset..*offset + N]);
+            *offset += N;
+            out
+        }
+
+        fn validate_u64_size(value: u64) -> Result<usize, BytesError> {
+            match value {
+                n if n > TD_SIZE_GLOBAL_MAX as u64 => {
+                    Err(BytesError::CorruptData)
+                }
+                n if n > TD_SIZE_PLATFORM_MAX as u64 => {
+                    Err(BytesError::WrongArch)
+                }
+                n => Ok(n as usize),
+            }
+        }
+
+        let mut offset: usize = 0;
+
+        if bytes.is_empty() {
+            return Err(BytesError::EmptyData);
+        }
+
+        if bytes.len() < 12 || read::<8>(bytes, &mut offset) != Self::MAGIC {
+            return Err(BytesError::WrongFormat);
+        }
+
+        let version = u32::from_le_bytes(read::<4>(bytes, &mut offset));
+        if version != Self::VERSION {
+            return Err(BytesError::WrongVersion);
+        }
+
+        if bytes.len() < Self::HEADER_BYTES {
+            return Err(BytesError::CorruptData);
+        }
+
+        let c_len_u64 = u64::from_le_bytes(read::<8>(bytes, &mut offset));
+        let centroids_len = validate_u64_size(c_len_u64)?;
+
+        let expected = Self::HEADER_BYTES + centroids_len * 16;
+        if bytes.len() != expected {
+            return Err(BytesError::CorruptData);
+        }
+
+        let max_size_u64 = u64::from_le_bytes(read::<8>(bytes, &mut offset));
+        let max_size = validate_u64_size(max_size_u64)?;
+
+        let mass = f64::from_le_bytes(read::<8>(bytes, &mut offset));
+        let sum = f64::from_le_bytes(read::<8>(bytes, &mut offset));
+        let min = f64::from_le_bytes(read::<8>(bytes, &mut offset));
+        let max = f64::from_le_bytes(read::<8>(bytes, &mut offset));
+        let count = u128::from_le_bytes(read::<16>(bytes, &mut offset));
+
+        offset = Self::HEADER_BYTES;
+
+        let mut centroids: Vec<Centroid> = Vec::new();
+        centroids
+            .try_reserve_exact(centroids_len)
+            .map_err(BytesError::MemError)?;
+
+        for _ in 0..centroids_len {
+            let mean = f64::from_le_bytes(read::<8>(bytes, &mut offset));
+            let weight = f64::from_le_bytes(read::<8>(bytes, &mut offset));
+            centroids.push(Centroid::new(mean, weight));
+        }
+
+        Ok(Self {
+            centroids,
+            max_size,
+            mass: OrderedFloat::from(mass),
+            sum: OrderedFloat::from(sum),
+            min: OrderedFloat::from(min),
+            max: OrderedFloat::from(max),
+            count,
+        })
+    }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, TryReserveError> {
+        let centroids_len = self.centroids.len();
+        let cap = Self::HEADER_BYTES + centroids_len * 16;
+        let mut buf: Vec<u8> = Vec::new();
+        buf.try_reserve_exact(cap)?;
+
+        buf.extend_from_slice(&Self::MAGIC);
+        buf.extend_from_slice(&Self::VERSION.to_le_bytes());
+        buf.extend_from_slice(&(centroids_len as u64).to_le_bytes());
+        buf.extend_from_slice(&(self.max_size as u64).to_le_bytes());
+        buf.extend_from_slice(&self.mass.into_inner().to_le_bytes());
+        buf.extend_from_slice(&self.sum.into_inner().to_le_bytes());
+        buf.extend_from_slice(&self.min.into_inner().to_le_bytes());
+        buf.extend_from_slice(&self.max.into_inner().to_le_bytes());
+        buf.extend_from_slice(&self.count.to_le_bytes());
+        buf.extend_from_slice(&[0u8; Self::PADDING_BYTES]);
+
+        for c in &self.centroids {
+            buf.extend_from_slice(&c.mean().to_le_bytes());
+            buf.extend_from_slice(&c.weight().to_le_bytes());
+        }
+        Ok(buf)
     }
 
     #[inline]
@@ -734,4 +845,14 @@ impl TDigest {
 
         cum_left + fraction * weight_between
     }
+}
+
+#[derive(Debug)]
+pub enum BytesError {
+    MemError(TryReserveError),
+    CorruptData,
+    EmptyData,
+    WrongArch,
+    WrongFormat,
+    WrongVersion,
 }

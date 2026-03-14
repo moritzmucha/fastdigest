@@ -329,7 +329,7 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
 
 
 # -------------------------------------------------------------------
-# Serialization tests: to/from dict and pickle
+# Serialization tests: to/from dict, bytes, and pickle
 # -------------------------------------------------------------------
 def test_to_from_dict() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
@@ -359,6 +359,59 @@ def test_to_from_dict() -> None:
         TDigest.from_dict(d_dict)
 
 
+def test_to_from_bytes() -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    d_bytes = d.to_bytes()
+    assert isinstance(d_bytes, bytes)
+    new_d = TDigest.from_bytes(d_bytes)
+    check_tdigest_equality(d, new_d)
+    assert d.mean() == new_d.mean() == 2.0
+    d = TDigest(max_centroids=3)
+    d.batch_update(range(1, 101), 99.9)
+    d.update(42, math.e)
+    d_bytes = d.to_bytes()
+    new_d = TDigest.from_bytes(d_bytes)
+    check_tdigest_equality(d, new_d)
+    d = TDigest()
+    d_bytes = d.to_bytes()
+    assert isinstance(d_bytes, bytes)
+    new_d = TDigest.from_bytes(d_bytes)
+    assert isinstance(new_d, TDigest)
+    assert d == new_d
+    d = TDigest(3)
+    d_bytes = d.to_bytes()
+    new_d = TDigest.from_bytes(d_bytes)
+    assert isinstance(new_d, TDigest)
+    assert d == new_d
+    empty_bytes = b""
+    with pytest.raises(ValueError):
+        TDigest.from_bytes(empty_bytes)
+    fake_bytes = b"fake_bytes"
+    with pytest.raises(ValueError):
+        TDigest.from_bytes(fake_bytes)
+
+
+def test_pickle_unpickle() -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    dumped = pickle.dumps(d)
+    unpickled: TDigest = pickle.loads(dumped)
+    check_tdigest_equality(d, unpickled)
+    assert d.mean() == unpickled.mean() == 2.0
+    d = TDigest(max_centroids=3)
+    d.batch_update(range(1, 101), 99.9)
+    d.update(42, math.e)
+    dumped = pickle.dumps(d)
+    unpickled: TDigest = pickle.loads(dumped)
+    check_tdigest_equality(d, unpickled)
+    d = TDigest()
+    dumped = pickle.dumps(d)
+    unpickled: TDigest = pickle.loads(dumped)
+    assert d == unpickled
+
+
+# -------------------------------------------------------------------
+# Copy tests
+# -------------------------------------------------------------------
 @pytest.mark.parametrize(
     "copy_func",
     [
@@ -377,23 +430,6 @@ def test_copy_methods(copy_func: Callable[[TDigest], TDigest]) -> None:
     empty = TDigest()
     empty_copy = copy_func(empty)
     assert len(empty_copy) == 0
-
-
-def test_pickle_unpickle() -> None:
-    d = TDigest.from_values([1.0, 2.0, 3.0])
-    d.update(6.0)
-    dumped = pickle.dumps(d)
-    unpickled = pickle.loads(dumped)
-    check_tdigest_equality(d, unpickled)
-    assert d.mean() == unpickled.mean() == 3.0
-    d = TDigest.from_values(range(1, 101), max_centroids=3)
-    dumped = pickle.dumps(d)
-    unpickled = pickle.loads(dumped)
-    check_tdigest_equality(d, unpickled)
-    d = TDigest()
-    dumped = pickle.dumps(d)
-    unpickled = pickle.loads(dumped)
-    assert d == unpickled
 
 
 # -------------------------------------------------------------------
