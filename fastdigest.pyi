@@ -52,6 +52,19 @@ class TDigest:
         """
         ...
 
+    @staticmethod
+    def from_dict(tdigest_dict: Dict[str, Any]) -> "TDigest":
+        """
+        Construct a TDigest from a dictionary representation.
+
+        The dict must have a key "centroids" mapping to a list of centroids.
+        Each centroid should be a dict with keys "m" (float) and "c" (float).
+
+        :param tdigest_dict: Dictionary with centroids.
+        :return: TDigest instance.
+        """
+        ...
+
     @property
     def max_centroids(self) -> int:
         """
@@ -215,26 +228,6 @@ class TDigest:
         """
         ...
 
-    def min(self) -> float:
-        """
-        Return the minimum of all ingested values.
-
-        This is an exact value, not an estimate.
-
-        :return: Minimum value.
-        """
-        ...
-
-    def max(self) -> float:
-        """
-        Return the maximum of all ingested values.
-
-        This is an exact value, not an estimate.
-
-        :return: Maximum value.
-        """
-        ...
-
     def cdf(self, x: float) -> float:
         """
         Estimate the cumulative distribution function (CDF) at the value `x`,
@@ -291,6 +284,26 @@ class TDigest:
         """
         ...
 
+    def min(self) -> float:
+        """
+        Return the minimum of all ingested values.
+
+        This is an exact value, not an estimate.
+
+        :return: Minimum value.
+        """
+        ...
+
+    def max(self) -> float:
+        """
+        Return the maximum of all ingested values.
+
+        This is an exact value, not an estimate.
+
+        :return: Maximum value.
+        """
+        ...
+
     def to_dict(self) -> Dict[str, List[Dict[str, float]]]:
         """
         Return a dictionary representation of the TDigest.
@@ -300,19 +313,6 @@ class TDigest:
         It also contains instance parameters such as `max_centroids`.
 
         :return: Dictionary representation of the TDigest.
-        """
-        ...
-
-    @staticmethod
-    def from_dict(tdigest_dict: Dict[str, Any]) -> "TDigest":
-        """
-        Construct a TDigest from a dictionary representation.
-
-        The dict must have a key "centroids" mapping to a list of centroids.
-        Each centroid should be a dict with keys "m" (float) and "c" (float).
-
-        :param tdigest_dict: Dictionary with centroids.
-        :return: TDigest instance.
         """
         ...
 

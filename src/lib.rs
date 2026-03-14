@@ -100,6 +100,85 @@ impl PyTDigest {
         }
     }
 
+    /// Reconstructs a TDigest from a dict.
+    #[staticmethod]
+    pub fn from_dict(tdigest_dict: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let centroids_obj =
+            tdigest_dict.get_item("centroids")?.ok_or_else(|| {
+                PyKeyError::new_err("Key 'centroids' not found in dict.")
+            })?;
+        let centroids_list = centroids_obj.cast::<PyList>()?;
+        let mut centroids: Vec<Centroid> = Vec::new();
+        centroids
+            .try_reserve_exact(centroids_list.len())
+            .map_err(malloc_error)?;
+        let mut sum = 0.0;
+        let mut mass = 0.0;
+        let mut min = f64::NAN;
+        let mut max = f64::NAN;
+
+        for item in centroids_list.iter() {
+            let d = item.cast::<PyDict>()?;
+            let mean: f64 = d
+                .get_item("m")?
+                .ok_or_else(|| {
+                    PyKeyError::new_err("Centroid missing 'm' key.")
+                })?
+                .extract()?;
+            let weight: f64 = d
+                .get_item("c")?
+                .ok_or_else(|| {
+                    PyKeyError::new_err("Centroid missing 'c' key.")
+                })?
+                .extract()?;
+            centroids.push(Centroid::new(mean, weight));
+            sum += mean * weight;
+            mass += weight;
+            min = min.min(mean);
+            max = max.max(mean);
+        }
+
+        let max_centroids: usize =
+            match tdigest_dict.get_item("max_centroids")? {
+                Some(obj) => validate_max_centroids(obj.extract::<i64>()?)?,
+                _ => TD_SIZE_DEFAULT,
+            };
+        let n_values: u128 = match tdigest_dict.get_item("n_values")? {
+            Some(obj) => obj.extract()?,
+            _ => mass.round() as u128,
+        };
+        let min: f64 = match tdigest_dict.get_item("min")? {
+            Some(obj) => obj.extract()?,
+            _ => min,
+        };
+        let max: f64 = match tdigest_dict.get_item("max")? {
+            Some(obj) => obj.extract()?,
+            _ => max,
+        };
+
+        let digest = if !centroids.is_empty() {
+            TDigest::new(
+                centroids,
+                max_centroids,
+                n_values,
+                mass,
+                sum,
+                min,
+                max,
+            )
+            .map_err(malloc_error)?
+        } else {
+            TDigest::new_with_size(max_centroids).map_err(malloc_error)?
+        };
+
+        Ok(Self {
+            state: Mutex::new(TDigestState {
+                digest,
+                ..TDigestState::default()
+            }),
+        })
+    }
+
     /// Getter property: returns the max_centroids parameter.
     #[getter(max_centroids)]
     pub fn get_max_centroids(&self) -> PyResult<usize> {
@@ -265,10 +344,48 @@ impl PyTDigest {
         Ok(state.digest.estimate_quantile(0.01 * p))
     }
 
+    /// Estimates the median.
+    pub fn median(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_quantile(0.5))
+    }
+
+    /// Estimates the inter-quartile range.
+    pub fn iqr(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        let d = &state.digest;
+        Ok(d.estimate_quantile(0.75) - d.estimate_quantile(0.25))
+    }
+
     /// Estimates the rank (cumulative probability) of a given value `x`.
     pub fn cdf(&self, x: f64) -> PyResult<f64> {
         let state = lock_flush_check(self)?;
         Ok(state.digest.estimate_rank(x))
+    }
+
+    /// Estimates the empirical probability of a value being in
+    /// the interval \[`x1`, `x2`\].
+    pub fn probability(&self, x1: f64, x2: f64) -> PyResult<f64> {
+        if x1 > x2 {
+            return Err(PyValueError::new_err(
+                "x1 must be less than or equal to x2.",
+            ));
+        }
+        let state = lock_flush_check(self)?;
+        let d = &state.digest;
+        Ok(d.estimate_rank(x2) - d.estimate_rank(x1))
+    }
+
+    /// Returns the sum of the data.
+    pub fn sum(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.sum())
+    }
+
+    /// Returns the mean of the data.
+    pub fn mean(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.mean())
     }
 
     /// Returns the trimmed mean of the data between the q1 and q2 quantiles.
@@ -315,31 +432,6 @@ impl PyTDigest {
         Ok(trimmed_sum / trimmed_weight)
     }
 
-    /// Estimates the empirical probability of a value being in
-    /// the interval \[`x1`, `x2`\].
-    pub fn probability(&self, x1: f64, x2: f64) -> PyResult<f64> {
-        if x1 > x2 {
-            return Err(PyValueError::new_err(
-                "x1 must be less than or equal to x2.",
-            ));
-        }
-        let state = lock_flush_check(self)?;
-        let d = &state.digest;
-        Ok(d.estimate_rank(x2) - d.estimate_rank(x1))
-    }
-
-    /// Returns the sum of the data.
-    pub fn sum(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
-        Ok(state.digest.sum())
-    }
-
-    /// Returns the mean of the data.
-    pub fn mean(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
-        Ok(state.digest.mean())
-    }
-
     /// Returns the lowest ingested value.
     pub fn min(&self) -> PyResult<f64> {
         let state = lock_flush_check(self)?;
@@ -352,23 +444,7 @@ impl PyTDigest {
         Ok(state.digest.max())
     }
 
-    /// Estimates the median.
-    pub fn median(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
-        Ok(state.digest.estimate_quantile(0.5))
-    }
-
-    /// Estimates the inter-quartile range.
-    pub fn iqr(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
-        let d = &state.digest;
-        Ok(d.estimate_quantile(0.75) - d.estimate_quantile(0.25))
-    }
-
-    /// Returns a dictionary representation of the digest.
-    ///
-    /// The dict contains a key "centroids" mapping to a list of dicts,
-    /// each with keys "m" (mean) and "c" (weight or count).
+    /// Returns a dict representation of the digest.
     pub fn to_dict(&self, py: Python) -> PyResult<Py<PyAny>> {
         let state = lock_and_flush(self)?;
         let dict = PyDict::new(py);
@@ -387,97 +463,6 @@ impl PyTDigest {
         }
         dict.set_item("centroids", centroid_list)?;
         Ok(dict.into())
-    }
-
-    /// Reconstructs a TDigest from a dictionary.
-    /// A dict generated by the "tdigest" Python library will work OOTB.
-    #[staticmethod]
-    pub fn from_dict(tdigest_dict: &Bound<'_, PyDict>) -> PyResult<Self> {
-        let centroids_obj =
-            tdigest_dict.get_item("centroids")?.ok_or_else(|| {
-                PyKeyError::new_err("Key 'centroids' not found in dictionary.")
-            })?;
-        let centroids_list = centroids_obj.cast::<PyList>()?;
-        let mut centroids: Vec<Centroid> = Vec::new();
-        centroids
-            .try_reserve_exact(centroids_list.len())
-            .map_err(malloc_error)?;
-        let mut sum = 0.0;
-        let mut mass = 0.0;
-        let mut min = f64::NAN;
-        let mut max = f64::NAN;
-
-        for item in centroids_list.iter() {
-            let d = item.cast::<PyDict>()?;
-            let mean: f64 = d
-                .get_item("m")?
-                .ok_or_else(|| {
-                    PyKeyError::new_err("Centroid missing 'm' key.")
-                })?
-                .extract()?;
-            let weight: f64 = d
-                .get_item("c")?
-                .ok_or_else(|| {
-                    PyKeyError::new_err("Centroid missing 'c' key.")
-                })?
-                .extract()?;
-            centroids.push(Centroid::new(mean, weight));
-            sum += mean * weight;
-            mass += weight;
-            min = min.min(mean);
-            max = max.max(mean);
-        }
-
-        // Check if the "max_centroids" key exists
-        let max_centroids: usize =
-            match tdigest_dict.get_item("max_centroids")? {
-                Some(obj) => validate_max_centroids(obj.extract::<i64>()?)?,
-                // If missing or null, set the default value.
-                _ => TD_SIZE_DEFAULT,
-            };
-
-        // Check if the "n_values" key exists
-        let n_values: u128 = match tdigest_dict.get_item("n_values")? {
-            Some(obj) => obj.extract()?,
-            // If missing or null, take the rounded mass.
-            _ => mass.round() as u128,
-        };
-
-        // Check if the "min" key exists
-        let min: f64 = match tdigest_dict.get_item("min")? {
-            Some(obj) => obj.extract()?,
-            // If missing or null, take the lowest centroid.
-            _ => min,
-        };
-
-        // Check if the "max" key exists
-        let max: f64 = match tdigest_dict.get_item("max")? {
-            Some(obj) => obj.extract()?,
-            // If missing or null, take the highest centroid.
-            _ => max,
-        };
-
-        let digest = if !centroids.is_empty() {
-            TDigest::new(
-                centroids,
-                max_centroids,
-                n_values,
-                mass,
-                sum,
-                min,
-                max,
-            )
-            .map_err(malloc_error)?
-        } else {
-            TDigest::new_with_size(max_centroids).map_err(malloc_error)?
-        };
-
-        Ok(Self {
-            state: Mutex::new(TDigestState {
-                digest,
-                ..TDigestState::default()
-            }),
-        })
     }
 
     /// Returns true if two digests are equal. Caches are flushed
@@ -524,12 +509,9 @@ impl PyTDigest {
     }
 
     /// Returns a tuple (callable, args) so that pickle can reconstruct
-    /// the object via:
-    ///     TDigest.from_dict(state)
+    /// the object via TDigest.from_dict(state)
     pub fn __reduce__(&self, py: Python) -> PyResult<Py<PyAny>> {
-        // Get the dict state using to_dict.
         let state = self.to_dict(py)?;
-        // Retrieve the class type from the Python interpreter.
         let cls = py.get_type::<PyTDigest>();
         let from_dict = cls.getattr("from_dict")?;
         let args = PyTuple::new(py, &[state])?;
@@ -589,7 +571,6 @@ pub fn merge_all(
     digests: &Bound<'_, PyAny>,
     max_centroids: Option<i64>,
 ) -> PyResult<PyTDigest> {
-    // Convert any iterable into a Vec<TDigest>
     let digests: Vec<TDigest> = digests
         .try_iter()?
         .map(|item| {
@@ -602,7 +583,6 @@ pub fn merge_all(
         })
         .collect::<PyResult<Vec<_>>>()?;
 
-    // Safely convert Python integer
     let max_cent_valid: Option<usize> = match max_centroids {
         Some(v) => Some(validate_max_centroids(v)?),
         None => None,
@@ -758,13 +738,11 @@ fn validate_weights(
         None => Ok(None),
         Some(obj) => {
             let any = obj.as_ref();
-            // Try scalar first
             if let Ok(single_weight) = any.extract::<f64>(py) {
                 let w = validate_weight(single_weight)?;
                 return Ok(Some(vec![w; x_len]));
             }
 
-            // Otherwise expect a sequence of floats
             let w_vec: Vec<f64> =
                 any.extract::<Vec<f64>>(py).map_err(|_| {
                     PyTypeError::new_err(
