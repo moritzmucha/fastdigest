@@ -433,17 +433,15 @@ impl PyTDigest {
 
     /// Returns the trimmed mean of the data between the q1 and q2 quantiles.
     pub fn trimmed_mean(&self, q1: f64, q2: f64) -> PyResult<f64> {
-        if q1 < 0.0 || q2 > 1.0 || q1 >= q2 {
+        if !(0.0..=1.0).contains(&q1) || !(0.0..=1.0).contains(&q2) || q1 >= q2
+        {
             return Err(PyValueError::new_err(
                 "q1 must be >= 0, q2 must be <= 1, and q1 < q2.",
             ));
         }
         let state = lock_flush_check(self)?;
         let centroids = state.digest.centroids();
-        let total_weight: f64 = centroids.iter().map(|c| c.weight()).sum();
-        if total_weight == 0.0 {
-            return Err(PyValueError::new_err("Total weight is zero."));
-        }
+        let total_weight: f64 = state.digest.mass();
         let lower_weight_threshold = q1 * total_weight;
         let upper_weight_threshold = q2 * total_weight;
 
