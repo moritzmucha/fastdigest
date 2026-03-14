@@ -143,10 +143,6 @@ impl PyTDigest {
                 Some(obj) => validate_max_centroids(obj.extract::<i64>()?)?,
                 _ => TD_SIZE_DEFAULT,
             };
-        let n_values: u128 = match tdigest_dict.get_item("n_values")? {
-            Some(obj) => obj.extract()?,
-            _ => mass.round() as u128,
-        };
         let min: f64 = match tdigest_dict.get_item("min")? {
             Some(obj) => obj.extract()?,
             _ => min,
@@ -155,16 +151,20 @@ impl PyTDigest {
             Some(obj) => obj.extract()?,
             _ => max,
         };
+        let n_values: u128 = match tdigest_dict.get_item("n_values")? {
+            Some(obj) => obj.extract()?,
+            _ => mass.round() as u128,
+        };
 
         let digest = if !centroids.is_empty() {
             TDigest::new(
                 centroids,
                 max_centroids,
-                n_values,
                 mass,
                 sum,
                 min,
                 max,
+                n_values,
             )
             .map_err(malloc_error)?
         } else {
@@ -450,9 +450,9 @@ impl PyTDigest {
         let dict = PyDict::new(py);
 
         dict.set_item("max_centroids", state.digest.max_size())?;
-        dict.set_item("n_values", state.digest.count())?;
         dict.set_item("min", state.digest.min())?;
         dict.set_item("max", state.digest.max())?;
+        dict.set_item("n_values", state.digest.count())?;
 
         let centroid_list = PyList::empty(py);
         for centroid in state.digest.centroids() {

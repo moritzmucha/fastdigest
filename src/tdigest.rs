@@ -103,11 +103,11 @@ impl Default for Centroid {
 pub struct TDigest {
     centroids: Vec<Centroid>,
     max_size: usize,
-    count: u128,
     mass: OrderedFloat<f64>,
     sum: OrderedFloat<f64>,
     min: OrderedFloat<f64>,
     max: OrderedFloat<f64>,
+    count: u128,
 }
 
 impl TDigest {
@@ -118,38 +118,38 @@ impl TDigest {
         Ok(TDigest {
             centroids,
             max_size,
-            count: 0,
             mass: OrderedFloat::from(0.0),
             sum: OrderedFloat::from(0.0),
             min: OrderedFloat::from(f64::NAN),
             max: OrderedFloat::from(f64::NAN),
+            count: 0,
         })
     }
 
     pub fn new(
         centroids: Vec<Centroid>,
         max_size: usize,
-        count: u128,
         mass: f64,
         sum: f64,
         min: f64,
         max: f64,
+        count: u128,
     ) -> Result<Self, TryReserveError> {
         if centroids.len() <= max_size {
             Ok(TDigest {
                 centroids,
                 max_size,
-                count,
                 mass: OrderedFloat::from(mass),
                 sum: OrderedFloat::from(sum),
                 min: OrderedFloat::from(min),
                 max: OrderedFloat::from(max),
+                count,
             })
         } else {
             let sz = centroids.len();
             let digests: Vec<TDigest> = vec![
                 TDigest::new_with_size(max_size)?,
-                TDigest::new(centroids, sz, count, mass, sum, min, max)?,
+                TDigest::new(centroids, sz, mass, sum, min, max, count)?,
             ];
             Self::merge_digests(digests, Some(max_size))
         }
@@ -183,11 +183,6 @@ impl TDigest {
     }
 
     #[inline]
-    pub fn count(&self) -> u128 {
-        self.count
-    }
-
-    #[inline]
     pub fn mass(&self) -> f64 {
         self.mass.into_inner()
     }
@@ -205,6 +200,11 @@ impl TDigest {
     #[inline]
     pub fn max(&self) -> f64 {
         self.max.into_inner()
+    }
+
+    #[inline]
+    pub fn count(&self) -> u128 {
+        self.count
     }
 
     #[inline]
@@ -636,10 +636,10 @@ impl TDigest {
         compressed.sort();
 
         result.centroids = compressed;
-        result.count = count;
         result.mass = OrderedFloat::from(mass);
         result.min = min;
         result.max = max;
+        result.count = count;
         Ok(result)
     }
 
