@@ -116,6 +116,8 @@ impl TDigest {
     const VERSION: u32 = 1;
     const HEADER_BYTES: usize = 80; // beginning of centroids in binary format
     const PADDING_BYTES: usize = 4; // HEADER_BYTES - sum(used header bytes)
+    const TARGET_DIGITS: u32 = 8;
+    const RECOMP_THRESH: u128 = 10u128.pow(f64::DIGITS - Self::TARGET_DIGITS);
 
     pub fn new_with_size(max_size: usize) -> Result<Self, TryReserveError> {
         let mut centroids: Vec<Centroid> = Vec::new();
@@ -482,6 +484,8 @@ impl TDigest {
         compressed.sort();
 
         result.centroids = compressed;
+        result.maybe_recompute_totals(self.count);
+
         Ok(result)
     }
 
@@ -587,6 +591,8 @@ impl TDigest {
         compressed.sort();
 
         result.centroids = compressed;
+        result.maybe_recompute_totals(self.count);
+
         Ok(result)
     }
 
@@ -665,6 +671,8 @@ impl TDigest {
         starts.try_reserve_exact(digests.len())?;
 
         let count: u128 = digests.iter().map(|d| d.count).sum();
+        let max_count: u128 = digests.iter().map(|d| d.count).max().unwrap();
+
         let mut mass: f64 = 0.0;
         let mut min = OrderedFloat::from(f64::INFINITY);
         let mut max = OrderedFloat::from(f64::NEG_INFINITY);
@@ -751,6 +759,9 @@ impl TDigest {
         result.min = min;
         result.max = max;
         result.count = count;
+
+        result.maybe_recompute_totals(max_count);
+
         Ok(result)
     }
 
@@ -844,6 +855,25 @@ impl TDigest {
             / (centroid_right.mean() - centroid_left.mean());
 
         cum_left + fraction * weight_between
+    }
+
+    fn maybe_recompute_totals(&mut self, old_count: u128) {
+        let old_count_level = old_count / Self::RECOMP_THRESH;
+        let new_count_level = self.count / Self::RECOMP_THRESH;
+        if new_count_level > old_count_level {
+            self.recompute_totals();
+        }
+    }
+
+    fn recompute_totals(&mut self) {
+        let mut mass = 0.0;
+        let mut sum = 0.0;
+        for c in self.centroids.iter() {
+            mass += c.weight();
+            sum += c.mean() * c.weight();
+        }
+        self.mass = OrderedFloat::from(mass);
+        self.sum = OrderedFloat::from(sum);
     }
 }
 
