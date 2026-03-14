@@ -861,6 +861,40 @@ impl TDigest {
         cum_left + fraction * weight_between
     }
 
+    pub fn estimate_trimmed_mean(&self, q1: f64, q2: f64) -> f64 {
+        let lower_weight_threshold = q1 * self.mass();
+        let upper_weight_threshold = q2 * self.mass();
+
+        let mut cum_weight = 0.0;
+        let mut trimmed_sum = 0.0;
+        let mut trimmed_weight = 0.0;
+
+        for centroid in self.centroids().iter() {
+            let c_start = cum_weight;
+            let c_end = cum_weight + centroid.weight();
+            cum_weight = c_end;
+
+            if c_end <= lower_weight_threshold {
+                continue;
+            }
+            if c_start >= upper_weight_threshold {
+                break;
+            }
+
+            let overlap = (c_end.min(upper_weight_threshold)
+                - c_start.max(lower_weight_threshold))
+            .max(0.0);
+            trimmed_sum += overlap * centroid.mean();
+            trimmed_weight += overlap;
+        }
+
+        if trimmed_weight == 0.0 {
+            return f64::NAN;
+        }
+
+        trimmed_sum / trimmed_weight
+    }
+
     fn maybe_recompute_totals(&mut self, old_count: u128) {
         let old_count_level = old_count / Self::RECOMP_THRESH;
         let new_count_level = self.count / Self::RECOMP_THRESH;

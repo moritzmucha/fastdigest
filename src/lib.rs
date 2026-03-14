@@ -440,37 +440,7 @@ impl PyTDigest {
             ));
         }
         let state = lock_flush_check(self)?;
-        let centroids = state.digest.centroids();
-        let total_weight: f64 = state.digest.mass();
-        let lower_weight_threshold = q1 * total_weight;
-        let upper_weight_threshold = q2 * total_weight;
-
-        let mut cum_weight = 0.0;
-        let mut trimmed_sum = 0.0;
-        let mut trimmed_weight = 0.0;
-        for centroid in centroids {
-            let c_start = cum_weight;
-            let c_end = cum_weight + centroid.weight();
-            cum_weight = c_end;
-
-            if c_end <= lower_weight_threshold {
-                continue;
-            }
-            if c_start >= upper_weight_threshold {
-                break;
-            }
-
-            let overlap = (c_end.min(upper_weight_threshold)
-                - c_start.max(lower_weight_threshold))
-            .max(0.0);
-            trimmed_sum += overlap * centroid.mean();
-            trimmed_weight += overlap;
-        }
-
-        if trimmed_weight == 0.0 {
-            return Err(PyValueError::new_err("No data in the trimmed range."));
-        }
-        Ok(trimmed_sum / trimmed_weight)
+        Ok(state.digest.estimate_trimmed_mean(q1, q2))
     }
 
     /// Returns the lowest ingested value.
