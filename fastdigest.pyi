@@ -329,12 +329,19 @@ class TDigest:
         """
         ...
 
+    def var(self) -> float:
+        """
+        Estimates the population variance of the distribution.
+
+        :return: Estimated population variance.
+        """
+        ...
+
     def std(self) -> float:
         """
-        Estimates the standard deviation of the distribution by taking
-        MAD / Φ⁻¹(3/4).
+        Estimates the standard deviation of the distribution.
 
-        Only valid for normally distributed data.
+        Equivalent to `var() ** 0.5`.
 
         :return: Estimated standard deviation.
         """

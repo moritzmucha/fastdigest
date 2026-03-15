@@ -349,7 +349,7 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
 
 
 # -------------------------------------------------------------------
-# Deviation tests (mad, std, is_normal)
+# Deviation tests (mad, std, var, is_normal)
 # -------------------------------------------------------------------
 def test_mad(empty_digest: TDigest) -> None:
     values = list(range(1, 101))
@@ -372,12 +372,13 @@ def test_mad(empty_digest: TDigest) -> None:
         empty_digest.mad()
 
 
-def test_std_and_is_normal() -> None:
+def test_std_var_is_normal() -> None:
     sigma = 2.0
     data = generate_normal(1000, sigma=sigma)
     d = TDigest.from_values(data)
     assert d.is_normal()
     assert math.isclose(d.std(), sigma, rel_tol=0.01, abs_tol=ATOL)
+    assert math.isclose(d.var(), sigma**2, rel_tol=0.01, abs_tol=ATOL)
     d = TDigest.from_values(range(1001))
     assert not d.is_normal()
 

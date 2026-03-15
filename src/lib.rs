@@ -493,10 +493,16 @@ impl PyTDigest {
         Ok(state.digest.estimate_mad())
     }
 
+    /// Estimates the variance.
+    pub fn var(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_var())
+    }
+
     /// Estimates the standard deviation.
     pub fn std(&self) -> PyResult<f64> {
         let state = lock_flush_check(self)?;
-        Ok(state.digest.estimate_std())
+        Ok(state.digest.estimate_var().sqrt())
     }
 
     /// Performs a KS test to determine normality.

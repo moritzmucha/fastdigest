@@ -16,6 +16,7 @@
   - [self.min()](#selfmin)
   - [self.max()](#selfmax)
   - [self.mad()](#selfmad)
+  - [self.var()](#selfvar)
   - [self.std()](#selfstd)
   - [self.is_normal()](#selfis_normal)
 - [Vectorized mathematical functions](#vectorized-mathematical-functions)
@@ -258,21 +259,30 @@ print(f"MAD: {digest.mad():.3f}")
 ```
     MAD: 1.429
 
-#### self.std()
+#### self.var()
 
-Estimates the standard deviation of the distribution by taking $\frac{\textrm{MAD}}{\Phi^{-1} (\frac{3}{4})}$.
-
-Alias for [`mad() * 1.482602218505602`](#selfmad).
+Estimates the population variance of the distribution.
 
 ```python
 normally_distributed_data = np.random.normal(0, 1, 10_000)
 digest = TDigest.from_values(normally_distributed_data)
 
+print(f"Variance: {digest.var():.3f}")
+```
+    Variance: 1.010
+
+#### self.std()
+
+Estimates the standard deviation of the distribution.
+
+Alias for [`var() ** 0.5`](#selfvar).
+
+```python
+digest = TDigest.from_values(normally_distributed_data)
+
 print(f"Standard deviation: {digest.std():.3f}")
 ```
     Standard deviation: 1.005
-
-> **Note:** This estimation is valid **only for normally distributed data**.
 
 #### self.is_normal()
 

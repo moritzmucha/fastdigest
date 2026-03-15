@@ -1054,8 +1054,17 @@ impl TDigest {
             .unwrap_or(f64::NAN)
     }
 
-    pub fn estimate_std(&self) -> f64 {
-        self.estimate_mad() * 1.482602218505602 // (Φ⁻¹(3/4))⁻¹
+    /// Estimates population variance using Var(X) = E[X^2] - (E[X])^2.
+    pub fn estimate_var(&self) -> f64 {
+        if self.mass() == 0.0 {
+            return f64::NAN;
+        }
+        let m2: f64 = self
+            .centroids
+            .iter()
+            .map(|c| c.mean() * c.mean() * c.weight())
+            .sum();
+        m2 / self.mass() - self.mean() * self.mean()
     }
 
     /// Approximate error function (Abramowitz-Stegun 7.1.26).
@@ -1083,9 +1092,9 @@ impl TDigest {
     fn ks_statistic_against_normal(&self) -> f64 {
         let n = self.mass();
         let mu = self.mean();
-        let sigma = self.estimate_std();
+        let sigma = self.estimate_var().sqrt();
 
-        if sigma == 0.0 {
+        if sigma == 0.0 || sigma.is_nan() {
             return 1.0;
         }
 
