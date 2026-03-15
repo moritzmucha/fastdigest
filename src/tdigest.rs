@@ -1028,7 +1028,7 @@ impl TDigest {
             a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let half = self.mass() / 2.0;
+        let half = (self.mass() + 1.0) / 2.0;
         let mut cumulative = 0.0;
         let mut prev_cum;
         let mut prev_dev = pairs[0].0;
