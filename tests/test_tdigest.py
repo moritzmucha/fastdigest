@@ -77,7 +77,7 @@ def test_from_values(values: Sequence[int]) -> None:
     assert d.n_centroids == 3
     d = TDigest.from_values(values, w=2.0)
     assert d.n_values == len(values)
-    assert d.mass == 2.0 * len(values)
+    assert d.mass() == 2.0 * len(values)
     d = TDigest.from_values([])
     assert d == TDigest()
     with pytest.raises(ValueError):
@@ -106,33 +106,50 @@ def test_max_centroids(
 
 def test_properties(empty_digest: TDigest) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
-    assert isinstance(d.mass, float) and d.mass == 3.0
+    assert isinstance(d.mass(), float) and d.mass() == 3.0
     assert isinstance(d.n_values, int) and d.n_values == 3
     assert isinstance(d.n_centroids, int) and d.n_centroids == 3
     d = empty_digest
-    assert d.mass == 0.0
+    assert d.mass() == 0.0
     assert d.n_values == 0
     assert d.n_centroids == 0
     d.batch_update([1.0, 2.0, 3.0], w=[3, 2, 1])
-    assert d.mass == 6.0
+    assert d.mass() == 6.0
     assert d.n_values == 3
     assert d.n_centroids == 3
     d.update(7, 11)
-    assert d.mass == 17.0
+    assert d.mass() == 17.0
     assert d.n_values == 4
     d.update(5)
-    assert d.mass == 18.0
+    assert d.mass() == 18.0
     assert d.n_values == 5
     assert d.n_centroids == 5
 
 
+def test_aggregates(
+    sample_values: Sequence[int], empty_digest: TDigest
+) -> None:
+    d = TDigest.from_values(sample_values)
+    assert d.mass() == len(sample_values)
+    assert d.sum() == sum(sample_values)
+    assert d.min() == min(sample_values)
+    assert d.max() == max(sample_values)
+    d = empty_digest
+    assert d.mass() == 0.0
+    assert d.sum() == 0.0
+    with pytest.raises(ValueError):
+        d.min()
+    with pytest.raises(ValueError):
+        d.max()
+
+
 def test_is_empty(empty_digest: TDigest) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
-    assert not d.is_empty
+    assert not d.is_empty()
     d = empty_digest
-    assert d.is_empty
+    assert d.is_empty()
     d.update(1)
-    assert not d.is_empty
+    assert not d.is_empty()
 
 
 def test_centroids(empty_digest: TDigest) -> None:
@@ -260,18 +277,18 @@ def test_weighted_updates() -> None:
     d = TDigest()
     d.batch_update([1, 2, 3], w=[1, 2, 3])
     assert d.n_values == 3
-    assert d.mass == 6.0
+    assert d.mass() == 6.0
     assert d.sum() == 14.0
     d = TDigest.from_values([2.0])
     d.batch_update([1, 2, 3], w=[3, 2, 1])
-    assert d.mass == 7.0
+    assert d.mass() == 7.0
     assert d.sum() == 12.0
     d = TDigest()
     d.batch_update([1, 2, 3], w=2.0)
-    assert d.mass == 6.0
+    assert d.mass() == 6.0
     assert d.sum() == 12.0
     d.update(2, w=4)
-    assert d.mass == 10.0
+    assert d.mass() == 10.0
     assert d.sum() == 20.0
     with pytest.raises(ValueError):
         d.update(float("nan"))
@@ -288,7 +305,7 @@ def test_weighted_updates() -> None:
 
 
 # -------------------------------------------------------------------
-# Quantile tests (quantile, percentile, median, iqr, min, max)
+# Quantile tests (quantile, percentile, median, iqr)
 # -------------------------------------------------------------------
 def test_quantile_median_min_max(empty_digest: TDigest) -> None:
     data = list(range(2, 199))
@@ -306,8 +323,6 @@ def test_quantile_median_min_max(empty_digest: TDigest) -> None:
     m = d.median()
     assert math.isclose(m, 100.0, rel_tol=RTOL, abs_tol=ATOL)
     assert math.isclose(d.iqr(), 98.0, rel_tol=RTOL, abs_tol=ATOL)
-    assert math.isclose(d.min(), 2.0, rel_tol=RTOL, abs_tol=EPS)
-    assert math.isclose(d.max(), 198.0, rel_tol=RTOL, abs_tol=EPS)
 
 
 # -------------------------------------------------------------------
@@ -330,7 +345,7 @@ def test_cdf_methods(empty_digest: TDigest) -> None:
 
 
 # -------------------------------------------------------------------
-# Mean tests (mean, trimmed_mean, sum)
+# Mean tests (mean, trimmed_mean)
 # -------------------------------------------------------------------
 def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
     values = list(range(1, 101))
@@ -344,8 +359,6 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
         d.trimmed_mean(0.9, 0.1)
     with pytest.raises(ValueError):
         empty_digest.trimmed_mean(0.01, 0.99)
-    true_sum = sum(values)
-    assert math.isclose(d.sum(), true_sum, rel_tol=RTOL, abs_tol=ATOL)
 
 
 # -------------------------------------------------------------------

@@ -65,12 +65,12 @@ class TDigest:
     @staticmethod
     def from_dict(tdigest_dict: Dict[str, Any]) -> "TDigest":
         """
-        Construct a TDigest from a dictionary representation.
+        Construct a TDigest from a dict representation.
 
         The dict must have a key "centroids" mapping to a list of centroids.
         Each centroid should be a dict with keys "m" (float) and "c" (float).
 
-        :param tdigest_dict: Dictionary with centroids.
+        :param tdigest_dict: Dict with centroids.
         :return: TDigest instance.
         """
         ...
@@ -88,15 +88,6 @@ class TDigest:
     @max_centroids.setter
     def max_centroids(self, value: int) -> None:
         ""
-        ...
-
-    @property
-    def mass(self) -> float:
-        """
-        Total weight of all data points fed into this TDigest.
-
-        :return: Sum of all centroid weights.
-        """
         ...
 
     @property
@@ -118,20 +109,51 @@ class TDigest:
         ...
 
     @property
-    def is_empty(self) -> bool:
-        """
-        True if no data has been ingested yet.
-
-        :return: True if empty, False otherwise.
-        """
-        ...
-
-    @property
     def centroids(self) -> List[Tuple[float, float]]:
         """
         List of centroids in the TDigest as tuples of (mean, weight).
 
         :return: List of (mean, weight) tuples.
+        """
+        ...
+
+    def mass(self) -> float:
+        """
+        Returns the total weight of all data points fed into this TDigest.
+
+        :return: Sum of all centroid weights.
+        """
+        ...
+
+    def sum(self) -> float:
+        """
+        Returns the sum of all ingested values.
+
+        :return: Sum of all values.
+        """
+        ...
+
+    def min(self) -> float:
+        """
+        Returns the minimum of all ingested values.
+
+        :return: Minimum value.
+        """
+        ...
+
+    def max(self) -> float:
+        """
+        Returns the maximum of all ingested values.
+
+        :return: Maximum value.
+        """
+        ...
+
+    def is_empty(self) -> bool:
+        """
+        Returns True if no data has been ingested yet.
+
+        :return: True if empty, False otherwise.
         """
         ...
 
@@ -278,14 +300,6 @@ class TDigest:
         """
         ...
 
-    def sum(self) -> float:
-        """
-        Returns the sum of all ingested values.
-
-        :return: Sum of all values.
-        """
-        ...
-
     def mean(self) -> float:
         """
         Returns the arithmetic mean of all ingested values.
@@ -302,22 +316,6 @@ class TDigest:
         :param q1: Lower quantile threshold (`0 <= q1 < q2`).
         :param q2: Upper quantile threshold (`q1 < q2 <= 1`).
         :return: Trimmed mean value.
-        """
-        ...
-
-    def min(self) -> float:
-        """
-        Returns the minimum of all ingested values.
-
-        :return: Minimum value.
-        """
-        ...
-
-    def max(self) -> float:
-        """
-        Returns the maximum of all ingested values.
-
-        :return: Maximum value.
         """
         ...
 
@@ -372,13 +370,13 @@ class TDigest:
 
     def to_dict(self) -> Dict[str, Union[float, int, List[Dict[str, float]]]]:
         """
-        Returns a dictionary representation of the TDigest.
+        Returns a dict representation of the TDigest.
 
         The returned dict contains a "centroids" list, where each centroid
         is represented as a dict with keys "m" and "c".
         It also contains instance parameters such as `max_centroids`.
 
-        :return: Dictionary representation of the TDigest.
+        :return: Dict representation of the TDigest.
         """
         ...
 

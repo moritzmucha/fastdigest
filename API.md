@@ -3,6 +3,11 @@
 - [Initialization](#initialization)
   - [TDigest()](#tdigest)
   - [TDigest.from_values(x, w=None)](#tdigestfrom_valuesx-wnone)
+- [Aggregate state](#aggregate-state)
+  - [self.mass()](#selfmass)
+  - [self.sum()](#selfsum)
+  - [self.min()](#selfmin)
+  - [self.max()](#selfmax)
 - [Mathematical functions](#mathematical-functions)
   - [self.quantile(q)](#selfquantileq)
   - [self.percentile(p)](#selfpercentilep)
@@ -10,11 +15,8 @@
   - [self.iqr()](#selfiqr)
   - [self.cdf(x)](#selfcdfx)
   - [self.probability(x1, x2)](#selfprobabilityx1-x2)
-  - [self.sum()](#selfsum)
   - [self.mean()](#selfmean)
   - [self.trimmed_mean(q1, q2)](#selftrimmed_meanq1-q2)
-  - [self.min()](#selfmin)
-  - [self.max()](#selfmax)
   - [self.mad()](#selfmad)
   - [self.var()](#selfvar)
   - [self.std()](#selfstd)
@@ -38,11 +40,10 @@
   - [self.equals(other)](#selfequalsother)
 - [Other methods and properties](#other-methods-and-properties)
   - [self.copy()](#selfcopy)
+  - [self.is_empty()](#selfis_empty)
   - [self.max_centroids](#selfmax_centroids)
-  - [self.mass](#selfmass)
   - [self.n_values](#selfn_values)
   - [self.n_centroids](#selfn_centroids)
-  - [self.is_empty](#selfis_empty)
   - [self.centroids](#selfcentroids)
   - [Magic methods / operators](#magic-methods--operators)
 
@@ -89,6 +90,54 @@ digest = TDigest.from_values(data)  # from NumPy array
 print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 ```
     TDigest(max_centroids=1000): 988 centroids from 10000 values
+
+### Aggregate state
+
+#### self.mass()
+
+Returns the total amount of values ingested.
+
+Equivalent to [`float(n_values)`](#selfn_values) if no weighted updates were used.
+
+```python
+digest = TDigest.from_values(range(11))
+
+print(f"Mass: {digest.mass()}")
+```
+    Mass: 11.0
+
+#### self.sum()
+
+Returns the sum of all ingested values.
+
+```python
+digest = TDigest.from_values(range(11))
+
+print(f"Sum: {digest.sum()}")
+```
+    Sum: 55.0
+
+#### self.min()
+
+Returns the lowest ingested value.
+
+```python
+digest = TDigest.from_values(range(11))
+
+print(f"Minimum: {digest.min()}")
+```
+    Minimum: 0.0
+
+#### self.max()
+
+Returns the highest ingested value.
+
+```python
+digest = TDigest.from_values(range(11))
+
+print(f"Maximum: {digest.max()}")
+```
+    Maximum: 10.0
 
 ### Mathematical functions
 
@@ -186,20 +235,9 @@ print(f"Probability of value between ±2: {prob_pct:.1f}%")
 ```
     Probability of value between ±2: 95.4%
 
-#### self.sum()
-
-Returns the sum of all ingested values.
-
-```python
-digest = TDigest.from_values(range(11))
-
-print(f"Sum: {digest.sum()}")
-```
-    Sum: 55.0
-
 #### self.mean()
 
-Returns the arithmetic mean of the distribution.
+Calculates the arithmetic mean of the distribution as [`sum()`](#selfsum)`/`[`mass()`](#selfmass).
 
 ```python
 digest = TDigest.from_values(range(11))
@@ -225,39 +263,16 @@ print(f"Trimmed mean: {trimmed_mean}")
             Mean: 9095.0
     Trimmed mean: 5.0
 
-#### self.min()
-
-Returns the lowest ingested value.
-
-```python
-digest = TDigest.from_values(range(-50, 51))
-
-print(f"Minimum: {digest.min():+.1f}")
-```
-    Minimum: -50.0
-
-#### self.max()
-
-Returns the highest ingested value.
-
-```python
-digest = TDigest.from_values(range(-50, 51))
-
-print(f"Maximum: {digest.max():+.1f}")
-```
-    Maximum: +50.0
-
 #### self.mad()
 
 Estimates the median absolute deviation (MAD) of the distribution.
 
 ```python
-skewed_data = np.random.standard_gamma(5, 10_000)
-digest = TDigest.from_values(skewed_data)
+digest = TDigest.from_values(range(101))
 
-print(f"MAD: {digest.mad():.3f}")
+print(f"MAD: {digest.mad()}")
 ```
-    MAD: 1.429
+    MAD: 25.0
 
 #### self.var()
 
@@ -345,7 +360,7 @@ digest = TDigest.from_values([1, 2, 3, 4, 5, 6])
 digest.update(7)
 digest.update(42, w=5.0)
 
-print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass}")
+print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass()}")
 ```
     TDigest(max_centroids=1000): 8 values, combined weight of 12.0
 
@@ -368,7 +383,7 @@ digest.batch_update([1, 2], w=2.0)     # weighted with scalar
 digest.batch_update([5])  # can also just be one value ...
 digest.batch_update([])   # ... or empty
 
-print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass}")
+print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass()}")
 ```
     TDigest(max_centroids=1000): 15 values, combined weight of 18.0
 
@@ -443,7 +458,7 @@ print(f"{merged}: {len(merged)} centroids from {merged.n_values} values")
 
 #### self.to_dict()
 
-Returns a dictionary representation of the TDigest.
+Returns a dict representation of the TDigest.
 
 ```python
 import json
@@ -523,8 +538,6 @@ print(f"{restored}: {len(restored)} centroids from {restored.n_values} values")
 ```
     TDigest(max_centroids=3): 3 centroids from 101 values
 
-<br>
-
 > **Note:** You can also use the `pickle` module for serialization. This uses [`to_bytes`](#selfto_bytes)/[`from_bytes`](#tdigestfrom_bytesdata) internally but produces a different format that is not interchangeable with TDigest's native methods.
 
 ### Comparison
@@ -552,25 +565,22 @@ print(f"digest == restored: {digest.equals(restored)}")
 
 Returns a copy of the instance.
 
+#### self.is_empty()
+
+Returns `True` if no data has been ingested yet.
+
 #### self.max_centroids
 
 Returns the `max_centroids` parameter. Can also be assigned to, changing future behavior of the instance.
 
-#### self.mass
-
-Returns the total ingested weight. Equivalent to [`float(n_values)`](#selfn_values) if no weighted updates were used.
-
 #### self.n_values
 
-Returns the total number of individually ingested values (disregarding weights).
+Returns the total number of individual ingested values (disregarding weights).
+Integer equivalent of [`mass()`](#selfmass) if no weighted updates were used.
 
 #### self.n_centroids
 
 Returns the number of centroids in the digest.
-
-#### self.is_empty
-
-Returns `True` if no data has been ingested yet.
 
 #### self.centroids
 
@@ -582,7 +592,7 @@ Returns the centroids as a list of (mean, weight) tuples.
 - `self != other`: alias for [`not self.equals(other)`](#selfequalsother) but with `TypeError` suppressed → other types return `True`
 - `self + other`: alias for [`self.merge(other)`](#selfmergeother)
 - `self += other`: alias for [`self.merge_inplace(other)`](#selfmerge_inplaceother)
-- `bool(digest)`: alias for [`not digest.is_empty`](#selfis_empty)
+- `bool(digest)`: alias for [`not digest.is_empty()`](#selfis_empty)
 - `len(digest)`: alias for [`digest.n_centroids`](#selfn_centroids)
 - `iter(digest)`: returns an iterator over [`digest.centroids`](#selfcentroids)
 - `copy(digest)`, `deepcopy(digest)`: alias for [`digest.copy()`](#selfcopy)

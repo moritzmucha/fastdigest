@@ -235,18 +235,6 @@ impl PyTDigest {
         Ok(())
     }
 
-    /// Getter property: returns the total weight of data points ingested.
-    #[getter(mass)]
-    pub fn get_mass(&self) -> PyResult<f64> {
-        let state = lock_state(self)?;
-        let w_cache_sum = if state.w_cache_set {
-            Vec::from(&state.w_cache[0..state.i]).iter().sum()
-        } else {
-            state.i as f64
-        };
-        Ok(state.digest.mass() + w_cache_sum)
-    }
-
     /// Getter property: returns the total number of data points ingested.
     #[getter(n_values)]
     pub fn get_n_values(&self) -> PyResult<u128> {
@@ -259,13 +247,6 @@ impl PyTDigest {
     pub fn get_n_centroids(&self) -> PyResult<usize> {
         let state = lock_and_flush(self)?;
         Ok(state.digest.centroids().len())
-    }
-
-    /// Getter property: returns True if the digest is empty.
-    #[getter(is_empty)]
-    pub fn get_is_empty(&self) -> PyResult<bool> {
-        let state = lock_state(self)?;
-        Ok(state.digest.is_empty() && (state.i == 0))
     }
 
     /// Getter property: returns the centroids as a list of tuples.
@@ -281,6 +262,41 @@ impl PyTDigest {
             centroid_list.append(t)?;
         }
         Ok(centroid_list)
+    }
+
+    /// Returns the total weight.
+    pub fn mass(&self) -> PyResult<f64> {
+        let state = lock_state(self)?;
+        let w_cache_sum = if state.w_cache_set {
+            Vec::from(&state.w_cache[0..state.i]).iter().sum()
+        } else {
+            state.i as f64
+        };
+        Ok(state.digest.mass() + w_cache_sum)
+    }
+
+    /// Returns the sum of the data.
+    pub fn sum(&self) -> PyResult<f64> {
+        let state = lock_and_flush(self)?;
+        Ok(state.digest.sum())
+    }
+
+    /// Returns the lowest ingested value.
+    pub fn min(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.min())
+    }
+
+    /// Returns the highest ingested value.
+    pub fn max(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.max())
+    }
+
+    /// Returns True if the digest is empty.
+    pub fn is_empty(&self) -> PyResult<bool> {
+        let state = lock_state(self)?;
+        Ok(state.digest.is_empty() && (state.i == 0))
     }
 
     /// Merges this digest with another, returning a new TDigest.
@@ -451,12 +467,6 @@ impl PyTDigest {
         Ok(d.estimate_rank(x2) - d.estimate_rank(x1))
     }
 
-    /// Returns the sum of the data.
-    pub fn sum(&self) -> PyResult<f64> {
-        let state = lock_and_flush(self)?;
-        Ok(state.digest.sum())
-    }
-
     /// Returns the mean of the data.
     pub fn mean(&self) -> PyResult<f64> {
         let state = lock_flush_check(self)?;
@@ -473,18 +483,6 @@ impl PyTDigest {
         }
         let state = lock_flush_check(self)?;
         Ok(state.digest.estimate_trimmed_mean(q1, q2))
-    }
-
-    /// Returns the lowest ingested value.
-    pub fn min(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
-        Ok(state.digest.min())
-    }
-
-    /// Returns the highest ingested value.
-    pub fn max(&self) -> PyResult<f64> {
-        let state = lock_flush_check(self)?;
-        Ok(state.digest.max())
     }
 
     /// Estimates the median absolute deviation.
@@ -626,7 +624,7 @@ impl PyTDigest {
 
     /// Magic method: bool(TDigest) returns the negation of is_empty().
     pub fn __bool__(&self) -> PyResult<bool> {
-        self.get_is_empty().map(|empty| !empty)
+        self.is_empty().map(|empty| !empty)
     }
 
     /// Magic method: len(TDigest) returns the number of centroids.
