@@ -29,11 +29,6 @@ from utils import (
 # Fixtures
 # -------------------------------------------------------------------
 @pytest.fixture
-def empty_digest() -> TDigest:
-    return TDigest()
-
-
-@pytest.fixture
 def sample_values() -> List[int]:
     return list(range(1, 101))
 
@@ -88,14 +83,12 @@ def test_from_values(values: Sequence[int]) -> None:
         TDigest.from_values(values, w=-1)
 
 
-def test_max_centroids(
-    sample_values: Sequence[int], empty_digest: TDigest
-) -> None:
+def test_max_centroids(sample_values: Sequence[int]) -> None:
     d = TDigest.from_values(sample_values)
     assert d.max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest.from_values(sample_values, max_centroids=3)
     assert isinstance(d.max_centroids, int) and d.max_centroids == 3
-    assert empty_digest.max_centroids == DEFAULT_MAX_CENTROIDS
+    assert TDigest().max_centroids == DEFAULT_MAX_CENTROIDS
     d = TDigest(3)
     assert d.max_centroids == 3
     d.max_centroids = 0
@@ -104,12 +97,12 @@ def test_max_centroids(
         d.max_centroids = -1
 
 
-def test_properties(empty_digest: TDigest) -> None:
+def test_properties() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     assert isinstance(d.mass(), float) and d.mass() == 3.0
     assert isinstance(d.n_values, int) and d.n_values == 3
     assert isinstance(d.n_centroids, int) and d.n_centroids == 3
-    d = empty_digest
+    d = TDigest()
     assert d.mass() == 0.0
     assert d.n_values == 0
     assert d.n_centroids == 0
@@ -126,15 +119,13 @@ def test_properties(empty_digest: TDigest) -> None:
     assert d.n_centroids == 5
 
 
-def test_aggregates(
-    sample_values: Sequence[int], empty_digest: TDigest
-) -> None:
+def test_aggregates(sample_values: Sequence[int]) -> None:
     d = TDigest.from_values(sample_values)
     assert d.mass() == len(sample_values)
     assert d.sum() == sum(sample_values)
     assert d.min() == min(sample_values)
     assert d.max() == max(sample_values)
-    d = empty_digest
+    d = TDigest()
     assert d.mass() == 0.0
     assert d.sum() == 0.0
     with pytest.raises(ValueError):
@@ -143,16 +134,16 @@ def test_aggregates(
         d.max()
 
 
-def test_is_empty(empty_digest: TDigest) -> None:
+def test_is_empty() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     assert not d.is_empty()
-    d = empty_digest
+    d = TDigest()
     assert d.is_empty()
     d.update(1)
     assert not d.is_empty()
 
 
-def test_centroids(empty_digest: TDigest) -> None:
+def test_centroids() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     centroids = d.centroids
     assert isinstance(centroids, list) and len(centroids) == 3
@@ -160,27 +151,29 @@ def test_centroids(empty_digest: TDigest) -> None:
     assert all(isinstance(v, float) for v in centroids[0])
     assert [t[0] for t in centroids] == [1.0, 2.0, 3.0]
     assert [t[1] for t in centroids] == [1.0, 1.0, 1.0]
-    assert isinstance(empty_digest.centroids, list)
+    assert isinstance(TDigest().centroids, list)
 
 
 # -------------------------------------------------------------------
 # Merge tests (merge, merge_inplace, __add__, __iadd__)
 # -------------------------------------------------------------------
-def test_merge() -> None:
-    d1 = TDigest.from_values(range(1, 51))
-    d2 = TDigest.from_values(range(51, 101))
-    expected = calculate_sample_quantiles(range(1, 101))
+def test_merge(sample_values: Sequence[int]) -> None:
+    n = len(sample_values)
+    d1 = TDigest.from_values(sample_values[: n // 2])
+    d2 = TDigest.from_values(sample_values[n // 2 :])
+    expected = calculate_sample_quantiles(sample_values)
     merged = d1.merge(d2)
     check_sample_quantiles(merged, expected)
-    assert merged.n_values == 100
+    assert merged.n_values == n
 
 
-def test_merge_with_max_centroids() -> None:
-    d1 = TDigest.from_values(range(1, 51))
-    d2 = TDigest.from_values(range(51, 101))
+def test_merge_with_max_centroids(sample_values: Sequence[int]) -> None:
+    n = len(sample_values)
+    d1 = TDigest.from_values(sample_values[: n // 2])
+    d2 = TDigest.from_values(sample_values[n // 2 :])
     d1.max_centroids = 3
     merged = d1.merge(d2)
-    assert merged.n_values == 100
+    assert merged.n_values == n
     d2.max_centroids = 50
     merged = d1.merge(d2)
     assert 3 < merged.n_centroids <= 50 + 1, (
@@ -193,26 +186,27 @@ def test_merge_with_max_centroids() -> None:
     )
 
 
-def test_merge_inplace() -> None:
-    d1 = TDigest.from_values(range(1, 51))
-    d2 = TDigest.from_values(range(51, 101))
-    expected = calculate_sample_quantiles(range(1, 101))
+def test_merge_inplace(sample_values: Sequence[int]) -> None:
+    n = len(sample_values)
+    d1 = TDigest.from_values(sample_values[: n // 2])
+    d2 = TDigest.from_values(sample_values[n // 2 :])
+    expected = calculate_sample_quantiles(sample_values)
     d1.merge_inplace(d2)
     check_sample_quantiles(d1, expected)
-    assert d1.n_values == 100
+    assert d1.n_values == n
     d1.max_centroids = 3
     d1.merge_inplace(d2)
     assert d1.n_centroids <= 3 + 1
     d2.max_centroids = 50
     d1.merge_inplace(d2)
     assert d1.n_centroids <= 3 + 1
-    empty = TDigest()
-    d = TDigest.from_values(range(1, 51))
-    d.merge_inplace(empty)
-    expected = calculate_sample_quantiles(range(1, 51))
+    empty_digest = TDigest()
+    d = TDigest.from_values(sample_values[: n // 2])
+    d.merge_inplace(empty_digest)
+    expected = calculate_sample_quantiles(sample_values[: n // 2])
     check_sample_quantiles(d, expected)
-    empty.merge_inplace(d)
-    check_sample_quantiles(empty, expected)
+    empty_digest.merge_inplace(d)
+    check_sample_quantiles(empty_digest, expected)
 
 
 @pytest.mark.parametrize(
@@ -222,20 +216,24 @@ def test_merge_inplace() -> None:
         lambda d1, d2: d1.__iadd__(d2),
     ],
 )
-def test_add_iadd(iadd_op: Callable[[TDigest, TDigest], TDigest]) -> None:
-    d1 = TDigest.from_values(range(1, 51))
-    d2 = TDigest.from_values(range(51, 101))
-    expected = calculate_sample_quantiles(range(1, 101))
+def test_add_iadd(
+    iadd_op: Callable[[TDigest, TDigest], TDigest], sample_values: Sequence[int]
+) -> None:
+    n = len(sample_values)
+    d1 = TDigest.from_values(sample_values[: n // 2])
+    d2 = TDigest.from_values(sample_values[n // 2 :])
+    expected = calculate_sample_quantiles(sample_values)
     result = iadd_op(d1, d2)
     check_sample_quantiles(result, expected)
     double_merged = iadd_op(result, result)
     check_sample_quantiles(double_merged, expected)
-    assert double_merged.n_values == 200
+    assert double_merged.n_values == 2 * n
 
 
-def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
-    digest = TDigest.from_values(range(101))
+def test_add_with_empty_max_centroids(sample_values: Sequence[int]) -> None:
+    digest = TDigest.from_values(sample_values)
     digest.max_centroids = 3
+    empty_digest = TDigest()
     empty_digest.max_centroids = 3
     merged = digest + empty_digest
     assert len(merged) <= 3 + 1
@@ -307,68 +305,77 @@ def test_weighted_updates() -> None:
 # -------------------------------------------------------------------
 # Quantile tests (quantile, percentile, median, iqr)
 # -------------------------------------------------------------------
-def test_quantile_median_min_max(empty_digest: TDigest) -> None:
-    data = list(range(2, 199))
-    random.shuffle(data)
-    d = TDigest.from_values(data)
-    expected = calculate_sample_quantiles(data)
+def test_quantile_median_min_max(sample_values: Sequence[int]) -> None:
+    random.shuffle(sample_values)
+    d = TDigest.from_values(sample_values)
+    expected = calculate_sample_quantiles(sample_values)
     check_sample_quantiles(d, expected)
     results = d.quantile_vec(SAMPLE_QUANTILES)
     assert isinstance(results, list)
     compare_values("quantile_vec", SAMPLE_QUANTILES, expected, results)
-    with pytest.raises(ValueError):
-        empty_digest.quantile(0.5)
+    true_median = quantile(sample_values, 0.5)
     p = d.percentile(50)
-    assert math.isclose(p, 100.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(p, true_median, rel_tol=RTOL, abs_tol=ATOL)
     m = d.median()
-    assert math.isclose(m, 100.0, rel_tol=RTOL, abs_tol=ATOL)
-    assert math.isclose(d.iqr(), 98.0, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(m, true_median, rel_tol=RTOL, abs_tol=ATOL)
+    true_iqr = quantile(sample_values, 0.75) - quantile(sample_values, 0.25)
+    assert math.isclose(d.iqr(), true_iqr, rel_tol=RTOL, abs_tol=ATOL)
+    with pytest.raises(ValueError):
+        d.quantile(float("nan"))
+    with pytest.raises(ValueError):
+        d.quantile(float("inf"))
+    with pytest.raises(ValueError):
+        TDigest().quantile(0.5)
 
 
 # -------------------------------------------------------------------
 # CDF tests (cdf, probability)
 # -------------------------------------------------------------------
-def test_cdf_methods(empty_digest: TDigest) -> None:
-    data = list(range(2, 199))
-    random.shuffle(data)
-    d = TDigest.from_values(data)
-    expected = calculate_sample_ranks(data)
+def test_cdf_methods(sample_values: Sequence[int]) -> None:
+    random.shuffle(sample_values)
+    d = TDigest.from_values(sample_values)
+    expected = calculate_sample_ranks(sample_values)
     check_sample_ranks(d, expected)
     results = d.cdf_vec(SAMPLE_RANKS)
     assert isinstance(results, list)
     compare_values("cdf_vec", SAMPLE_RANKS, expected, results)
-    with pytest.raises(ValueError):
-        empty_digest.cdf(50)
     p_est = d.probability(80, 100)
-    expected_p = rank(data, 100) - rank(data, 80)
+    expected_p = rank(sample_values, 100) - rank(sample_values, 80)
     assert math.isclose(p_est, expected_p, rel_tol=RTOL, abs_tol=ATOL)
+    assert d.cdf(float("inf")) == 1.0
+    assert d.cdf(float("-inf")) == 0.0
+    assert math.isnan(d.cdf(float("nan")))
+    assert math.isnan(d.probability(float("nan"), 100))
+    with pytest.raises(ValueError):
+        TDigest().cdf(50)
 
 
 # -------------------------------------------------------------------
 # Mean tests (mean, trimmed_mean)
 # -------------------------------------------------------------------
-def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
-    values = list(range(1, 101))
-    d = TDigest.from_values(values)
-    assert math.isclose(d.mean(), 50.5, rel_tol=RTOL, abs_tol=EPS)
-    values[-1] = 10_000
-    d = TDigest.from_values(values)
+def test_mean_trimmed_mean_sum(sample_values: Sequence[int]) -> None:
+    true_mean = sum(sample_values) / len(sample_values)
+    d = TDigest.from_values(sample_values)
+    assert math.isclose(d.mean(), true_mean, rel_tol=RTOL, abs_tol=EPS)
+    sample_values[-1] = 10_000
+    d = TDigest.from_values(sample_values)
     trimmed = d.trimmed_mean(0.01, 0.99)
-    assert math.isclose(trimmed, 50.5, rel_tol=RTOL, abs_tol=ATOL)
+    assert math.isclose(trimmed, true_mean, rel_tol=RTOL, abs_tol=ATOL)
     with pytest.raises(ValueError):
         d.trimmed_mean(0.9, 0.1)
     with pytest.raises(ValueError):
-        empty_digest.trimmed_mean(0.01, 0.99)
+        d.trimmed_mean(float("nan"), 0.9)
+    with pytest.raises(ValueError):
+        TDigest().trimmed_mean(0.01, 0.99)
 
 
 # -------------------------------------------------------------------
 # Deviation tests (mad, std, var, is_normal)
 # -------------------------------------------------------------------
-def test_mad(empty_digest: TDigest) -> None:
-    values = list(range(1, 101))
-    d = TDigest.from_values(values)
-    median = quantile(values, 0.5)
-    devs = sorted([abs(v - median) for v in values])
+def test_mad(sample_values: Sequence[int]) -> None:
+    d = TDigest.from_values(sample_values)
+    median = quantile(sample_values, 0.5)
+    devs = sorted([abs(v - median) for v in sample_values])
     n = len(devs)
     pos = (n - 1) * 0.5
     lo = int(pos)
@@ -382,7 +389,7 @@ def test_mad(empty_digest: TDigest) -> None:
     d = TDigest.from_values([42.0, 42.0, 42.0])
     assert d.mad() == 0.0
     with pytest.raises(ValueError):
-        empty_digest.mad()
+        TDigest().mad()
 
 
 def test_std_var_is_normal() -> None:
@@ -392,14 +399,20 @@ def test_std_var_is_normal() -> None:
     assert d.is_normal()
     assert math.isclose(d.std(), sigma, rel_tol=0.01, abs_tol=ATOL)
     assert math.isclose(d.var(), sigma**2, rel_tol=0.01, abs_tol=ATOL)
+    d = TDigest.from_values([42.0, 42.0, 42.0])
+    assert d.var() == 0.0
     d = TDigest.from_values(range(1001))
     assert not d.is_normal()
+    with pytest.raises(ValueError):
+        TDigest().var()
+    with pytest.raises(ValueError):
+        TDigest().is_normal()
 
 
 # -------------------------------------------------------------------
 # Serialization tests: to/from dict, bytes, and pickle
 # -------------------------------------------------------------------
-def test_to_from_dict() -> None:
+def test_to_from_dict(sample_values: Sequence[int]) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     d_dict = d.to_dict()
     assert isinstance(d_dict, dict)
@@ -407,7 +420,7 @@ def test_to_from_dict() -> None:
     check_tdigest_equality(d, new_d)
     assert d.mean() == new_d.mean() == 2.0
     d = TDigest(max_centroids=3)
-    d.batch_update(range(1, 101), 99.9)
+    d.batch_update(sample_values, 99.9)
     d.update(42, math.e)
     d_dict = d.to_dict()
     new_d = TDigest.from_dict(d_dict)
@@ -428,7 +441,7 @@ def test_to_from_dict() -> None:
         TDigest.from_dict(d_dict)
 
 
-def test_to_from_bytes() -> None:
+def test_to_from_bytes(sample_values: Sequence[int]) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     d_bytes = d.to_bytes()
     assert isinstance(d_bytes, bytes)
@@ -436,7 +449,7 @@ def test_to_from_bytes() -> None:
     check_tdigest_equality(d, new_d)
     assert d.mean() == new_d.mean() == 2.0
     d = TDigest(max_centroids=3)
-    d.batch_update(range(1, 101), 99.9)
+    d.batch_update(sample_values, 99.9)
     d.update(42, math.e)
     d_bytes = d.to_bytes()
     new_d = TDigest.from_bytes(d_bytes)
@@ -460,14 +473,14 @@ def test_to_from_bytes() -> None:
         TDigest.from_bytes(fake_bytes)
 
 
-def test_pickle_unpickle() -> None:
+def test_pickle_unpickle(sample_values: Sequence[int]) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
     dumped = pickle.dumps(d)
     unpickled: TDigest = pickle.loads(dumped)
     check_tdigest_equality(d, unpickled)
     assert d.mean() == unpickled.mean() == 2.0
     d = TDigest(max_centroids=3)
-    d.batch_update(range(1, 101), 99.9)
+    d.batch_update(sample_values, 99.9)
     d.update(42, math.e)
     dumped = pickle.dumps(d)
     unpickled: TDigest = pickle.loads(dumped)
@@ -496,16 +509,16 @@ def test_copy_methods(copy_func: Callable[[TDigest], TDigest]) -> None:
     check_tdigest_equality(d, d_copy)
     assert id(d_copy) != id(d)
     assert d.mean() == d_copy.mean() == 3.0
-    empty = TDigest()
-    empty_copy = copy_func(empty)
+    empty_digest = TDigest()
+    empty_copy = copy_func(empty_digest)
     assert len(empty_copy) == 0
 
 
 # -------------------------------------------------------------------
 # Bool, length, representation, iteration, and equality tests
 # -------------------------------------------------------------------
-def test_bool_len_repr(empty_digest: TDigest) -> None:
-    assert not empty_digest
+def test_bool_len_repr() -> None:
+    assert not TDigest()
     d = TDigest.from_values([1.0, 2.0, 3.0])
     assert d
     length = len(d)
