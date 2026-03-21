@@ -806,11 +806,11 @@ fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
 }
 
 #[inline]
-fn validate_value(value: f64) -> PyResult<f64> {
+fn validate_value(value: f64) -> PyResult<()> {
     if !value.is_finite() {
         return Err(PyValueError::new_err("Values must be finite."));
     }
-    Ok(value)
+    Ok(())
 }
 
 #[inline]
