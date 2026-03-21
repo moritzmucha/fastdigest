@@ -378,7 +378,6 @@ impl PyTDigest {
     }
 
     /// Updates the digest (in-place) with a single float value.
-    #[inline]
     #[pyo3(signature = (x, w=None))]
     pub fn update(&self, x: f64, w: Option<f64>) -> PyResult<()> {
         validate_value(x)?;
@@ -705,7 +704,7 @@ pub fn merge_all(
 }
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
-#[inline]
+#[inline(always)]
 fn record_observation(
     state: &mut TDigestState,
     observation: f64,
@@ -724,7 +723,6 @@ fn record_observation(
 }
 
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
-#[inline]
 fn flush_cache(state: &mut TDigestState) -> PyResult<()> {
     if state.i < 1 {
         return Ok(());
@@ -756,13 +754,13 @@ fn check_nonempty(state: &TDigestState) -> PyResult<()> {
 }
 
 /// Helper function for mutex acquisition
-#[inline]
+#[inline(always)]
 fn lock_state(pytd: &PyTDigest) -> PyResult<MutexGuard<'_, TDigestState>> {
     Ok(pytd.state.lock())
 }
 
 /// Helper function to `lock_state` + `flush_cache`
-#[inline]
+#[inline(always)]
 fn lock_and_flush(pytd: &PyTDigest) -> PyResult<MutexGuard<'_, TDigestState>> {
     let mut state = lock_state(pytd)?;
     flush_cache(&mut state)?;
@@ -780,7 +778,7 @@ fn lock_flush_check(
 }
 
 /// Helper function to determine lock order based on pointer addresses
-#[inline]
+#[inline(always)]
 fn order_by_address<'a>(
     first: &'a PyTDigest,
     second: &'a PyTDigest,
@@ -792,20 +790,7 @@ fn order_by_address<'a>(
     }
 }
 
-/// Helper function to safely convert max_centroids to usize
-fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
-    let max_centroids_usize = usize::try_from(max_centroids).map_err(|_| {
-        PyValueError::new_err("max_centroids must be a non-negative integer.")
-    })?;
-    if max_centroids_usize > TD_SIZE_PLATFORM_MAX {
-        return Err(PyValueError::new_err(
-            "max_centroids exceeds the platform limit.",
-        ));
-    }
-    Ok(max_centroids_usize)
-}
-
-#[inline]
+#[inline(always)]
 fn validate_value(value: f64) -> PyResult<()> {
     if !value.is_finite() {
         return Err(PyValueError::new_err("Values must be finite."));
@@ -813,7 +798,7 @@ fn validate_value(value: f64) -> PyResult<()> {
     Ok(())
 }
 
-#[inline]
+#[inline(always)]
 fn validate_values(values: &[f64]) -> PyResult<()> {
     for &x in values {
         validate_value(x)?;
@@ -821,7 +806,7 @@ fn validate_values(values: &[f64]) -> PyResult<()> {
     Ok(())
 }
 
-#[inline]
+#[inline(always)]
 fn validate_weight(weight: f64) -> PyResult<f64> {
     if !weight.is_finite() || weight <= 0.0 {
         return Err(PyValueError::new_err(
@@ -832,7 +817,6 @@ fn validate_weight(weight: f64) -> PyResult<f64> {
 }
 
 /// Helper function to validate `w`. If scalar, creates Vec of length `x_len`.
-#[inline]
 fn validate_weights(
     w: Option<Bound<'_, PyAny>>,
     x_len: usize,
@@ -861,6 +845,19 @@ fn validate_weights(
             Ok(Some(w_vec))
         }
     }
+}
+
+/// Helper function to safely convert max_centroids to usize
+fn validate_max_centroids(max_centroids: i64) -> PyResult<usize> {
+    let max_centroids_usize = usize::try_from(max_centroids).map_err(|_| {
+        PyValueError::new_err("max_centroids must be a non-negative integer.")
+    })?;
+    if max_centroids_usize > TD_SIZE_PLATFORM_MAX {
+        return Err(PyValueError::new_err(
+            "max_centroids exceeds the platform limit.",
+        ));
+    }
+    Ok(max_centroids_usize)
 }
 
 /// Helper function to raise memory allocation errors
