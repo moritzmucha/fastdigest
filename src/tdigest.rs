@@ -908,9 +908,9 @@ impl TDigest {
                         f64::NAN
                     } else {
                         match m.partial_cmp(&x).unwrap() {
-                            std::cmp::Ordering::Less => 1.0,
-                            std::cmp::Ordering::Equal => 0.5,
-                            std::cmp::Ordering::Greater => 0.0,
+                            Ordering::Less => 1.0,
+                            Ordering::Equal => 0.5,
+                            Ordering::Greater => 0.0,
                         }
                     }
                 })
@@ -1024,9 +1024,7 @@ impl TDigest {
             .map(|c| ((c.mean() - median).abs(), c.weight()))
             .collect();
 
-        pairs.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
 
         let half = (self.mass() + 1.0) / 2.0;
         let mut cumulative = 0.0;
