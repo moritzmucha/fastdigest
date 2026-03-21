@@ -722,11 +722,17 @@ fn record_observation(
     Ok(())
 }
 
+/// Online TDigest helper function
+#[inline(always)]
+fn maybe_flush(state: &mut TDigestState) -> PyResult<()> {
+    if state.i != 0 {
+        flush_cache(state)?;
+    }
+    Ok(())
+}
+
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 fn flush_cache(state: &mut TDigestState) -> PyResult<()> {
-    if state.i < 1 {
-        return Ok(());
-    }
     let x = Vec::from(&state.x_cache[0..state.i]);
     if state.w_cache_set {
         let w = Vec::from(&state.w_cache[0..state.i]);
@@ -759,15 +765,15 @@ fn lock_state(pytd: &PyTDigest) -> PyResult<MutexGuard<'_, TDigestState>> {
     Ok(pytd.state.lock())
 }
 
-/// Helper function to `lock_state` + `flush_cache`
+/// Helper function to `lock_state` + `maybe_flush`
 #[inline(always)]
 fn lock_and_flush(pytd: &PyTDigest) -> PyResult<MutexGuard<'_, TDigestState>> {
     let mut state = lock_state(pytd)?;
-    flush_cache(&mut state)?;
+    maybe_flush(&mut state)?;
     Ok(state)
 }
 
-/// Helper function to `lock_state` + `flush_cache` + `check_nonempty`
+/// Helper function to `lock_state` + `maybe_flush` + `check_nonempty`
 #[inline]
 fn lock_flush_check(
     pytd: &PyTDigest,
