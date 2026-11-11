@@ -15,8 +15,8 @@ jobs:
       matrix:
         target: [aarch64, armv7, s390x, ppc64le]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: 3.x
       - name: Build wheels
@@ -27,7 +27,7 @@ jobs:
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-${{ matrix.target }}
           path: dist
@@ -38,8 +38,8 @@ jobs:
       matrix:
         target: [x86_64, x86]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: 3.x
       - name: Build wheels
@@ -52,7 +52,7 @@ jobs:
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-x86-${{ matrix.target }}
           path: dist
@@ -63,8 +63,8 @@ jobs:
       matrix:
         target: [x86_64, x86, aarch64, armv7]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: 3.x
       - name: Build wheels
@@ -75,7 +75,7 @@ jobs:
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-musllinux-${{ matrix.target }}
           path: dist
@@ -88,9 +88,6 @@ jobs:
           - runner: windows-2025
             target: x64
             artifact: windows-2025-x64
-          - runner: windows-2022
-            target: x86
-            artifact: windows-2022-x86
           - runner: windows-2025
             target: x86
             artifact: windows-2025-x86
@@ -104,8 +101,8 @@ jobs:
           - "3.15"
           - "3.15t"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.platform.target }}
@@ -116,7 +113,7 @@ jobs:
           args: --release --out dist
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: >
             wheels-${{ matrix.platform.artifact }}-
@@ -124,7 +121,7 @@ jobs:
           path: dist
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     strategy:
       matrix:
         python-version:
@@ -137,8 +134,8 @@ jobs:
           - "3.15"
           - "3.15t"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install maturin
@@ -150,7 +147,7 @@ jobs:
           rustup target add x86_64-apple-darwin
           maturin build --release --target universal2-apple-darwin --out dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-macos-legacy-${{ matrix.python-version }}
           path: dist
@@ -158,14 +155,14 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-sdist
           path: dist
