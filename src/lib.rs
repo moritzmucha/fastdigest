@@ -35,7 +35,7 @@ impl Default for TDigestState {
     }
 }
 
-#[pyclass(name = "TDigest", module = "fastdigest")]
+#[pyclass(from_py_object, name = "TDigest", module = "fastdigest")]
 pub struct PyTDigest {
     state: Mutex<TDigestState>,
 }
@@ -679,10 +679,11 @@ pub fn merge_all(
     let digests: Vec<TDigest> = digests
         .try_iter()?
         .map(|item| {
-            let py_tdigest =
-                item.and_then(|x| x.extract::<PyTDigest>()).map_err(|_| {
-                    PyTypeError::new_err("Provide an iterable of TDigests.")
-                })?;
+            let py_tdigest = item
+                .and_then(|x| Ok(x.extract::<PyTDigest>()?))
+                .map_err(|_| {
+                PyTypeError::new_err("Provide an iterable of TDigests.")
+            })?;
             let state = lock_and_flush(&py_tdigest)?;
             Ok(state.digest.clone())
         })
