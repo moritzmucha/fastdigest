@@ -47,8 +47,8 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: >
-            --release --out dist --interpreter 3.10
-            3.11 3.12 3.13 3.14 3.14t pypy3.11
+            --release --out dist --interpreter 3.10 3.11 3.12 3.13 3.14 3.14t
+            3.15 3.15t pypy3.11
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
@@ -101,6 +101,8 @@ jobs:
           - "3.13"
           - "3.14"
           - "3.14t"
+          - "3.15"
+          - "3.15t"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -132,6 +134,8 @@ jobs:
           - "3.13"
           - "3.14"
           - "3.14t"
+          - "3.15"
+          - "3.15t"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
