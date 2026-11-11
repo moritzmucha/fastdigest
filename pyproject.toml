@@ -51,6 +51,14 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/moritzmucha/fastdigest"
 
+[dependency-groups]
+dev = [
+    "maturin>=1.16.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+    "uv>=0.13.7",
+]
+
 [tool.maturin]
 include = [
   "fastdigest.pyi",
