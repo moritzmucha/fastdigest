@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "fastdigest"
-version = "0.12.0"
+version = "0.13.0"
 description = "Fast online statistics using t-digest"
 readme = "README.md"
 requires-python = ">=3.10"
