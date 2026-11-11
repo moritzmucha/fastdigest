@@ -9,7 +9,6 @@ pub const TD_SIZE_PLATFORM_MAX: usize = (isize::MAX / 16) as usize;
 pub const TD_SIZE_GLOBAL_MAX: usize = (i64::MAX / 16) as usize;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct Centroid {
     pub mean: OrderedFloat<f64>,
     pub weight: OrderedFloat<f64>,
@@ -67,7 +66,6 @@ impl Default for Centroid {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TDigest {
     centroids: Vec<Centroid>,
     max_size: usize,
