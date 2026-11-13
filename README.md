@@ -45,22 +45,20 @@ pip install fastdigest
 
 ### Installing from source
 
-To build and install *fastDigest* from source, you will need Rust and *maturin*.
+Install Python 3.10+ and [Rust](https://rustup.rs), then download or clone this repository and open a terminal in its root directory.
+Then you can either:
 
-1. Install the Rust toolchain &rarr; see https://rustup.rs
+- Directly build and install *fastDigest* in your active Python environment in a single step:
 
-2. Install *maturin* via pip:
+  ```bash
+  pip install .
+  ```
 
-```bash
-pip install maturin
-```
+- Or use [uv](https://docs.astral.sh/uv/) to build a release wheel with the project's locked dependencies:
 
-3. `git clone` or download and extract this repository, open a terminal in its root directory, then build and install the package:
-
-```bash
-maturin build --release
-pip install target/wheels/fastdigest-0.13.0-<platform-tag>.whl
-```
+  ```bash
+  uv run --locked maturin build --release
+  ```
 
 ## Usage
 
@@ -117,7 +115,6 @@ digest.update(3)
 Optionally specify weights in the second argument `w`:
 
 ```python
-
 digest.update(4, 0.4)  # single weighted value
 digest.batch_update([5, 6, 7], w=1.5)  # whole-batch weight
 digest.batch_update([8, 9], [1.0, 2.0])  # per-value weights
