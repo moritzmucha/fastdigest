@@ -6,7 +6,6 @@ from utils import calculate_sample_quantiles, check_sample_quantiles
 def test_merge_all() -> None:
     min_max_centroids = 10
     digests = [TDigest.from_values(range(i, i + 10)) for i in range(1, 100, 10)]
-    # Append an empty digest
     digests.append(TDigest())
     merged = merge_all(iter(digests))
     expected = calculate_sample_quantiles(range(1, 101))
@@ -42,3 +41,26 @@ def test_merge_all() -> None:
         merge_all(empty_digests, max_centroids=10.0)
     with pytest.raises(ValueError):
         merge_all(empty_digests, max_centroids=-1)
+
+
+def test_merge_all_snapshots_pending_weighted_updates() -> None:
+    digest = TDigest.from_values([2, 4])
+    digest.update(6, w=2)
+
+    def snapshots():
+        yield digest
+        # The first occurrence must retain its state from before this update.
+        digest.update(8, w=3)
+        yield digest
+
+    merged = merge_all(snapshots())
+    assert merged.n_values == 7
+    assert merged.mass() == 11
+    assert merged.sum() == 60
+    assert merged.min() == 2
+    assert merged.max() == 8
+
+    # Flushing the owned snapshots must not add data to the original.
+    assert digest.n_values == 4
+    assert digest.mass() == 7
+    assert digest.sum() == 42

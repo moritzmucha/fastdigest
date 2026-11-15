@@ -697,8 +697,9 @@ pub fn merge_all(
                 .map_err(|_| {
                 PyTypeError::new_err("Provide an iterable of TDigests.")
             })?;
-            let state = lock_and_flush(&py_tdigest)?;
-            Ok(state.digest.clone())
+            let mut state = py_tdigest.state.into_inner();
+            maybe_flush(&mut state)?;
+            Ok(state.digest)
         })
         .collect::<PyResult<Vec<_>>>()?;
 
