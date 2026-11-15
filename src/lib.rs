@@ -514,6 +514,19 @@ impl PyTDigest {
         Ok(state.digest.estimate_var().sqrt())
     }
 
+    /// Estimates skewness.
+    pub fn skew(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_skew())
+    }
+
+    /// Estimates Fisher kurtosis, or Pearson kurtosis if excess=false.
+    #[pyo3(signature = (excess=true))]
+    pub fn kurtosis(&self, excess: bool) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_kurtosis(excess))
+    }
+
     /// Performs a KS test to determine normality.
     #[pyo3(signature = (alpha=0.05))]
     pub fn is_normal(&self, alpha: f64) -> PyResult<bool> {

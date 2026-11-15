@@ -345,6 +345,24 @@ class TDigest:
         """
         ...
 
+    def skew(self) -> float:
+        """
+        Estimates the population skewness of the distribution.
+
+        :return: Estimated skewness.
+        """
+        ...
+
+    def kurtosis(self, excess: bool = True) -> float:
+        """
+        Estimates the population kurtosis of the distribution.
+
+        :param excess: Return Fisher excess kurtosis (default).
+            Set False for Pearson kurtosis.
+        :return: Estimated kurtosis.
+        """
+        ...
+
     def is_normal(self, alpha: float = 0.05) -> bool:
         """
         Performs a Kolmogorov-Smirnov test to determine if the ingested data

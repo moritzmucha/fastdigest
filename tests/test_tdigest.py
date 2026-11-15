@@ -369,8 +369,26 @@ def test_mean_trimmed_mean_sum(sample_values: Sequence[int]) -> None:
         TDigest().trimmed_mean(0.01, 0.99)
 
 
+def test_trimmed_mean_tail_intervals() -> None:
+    d = TDigest.from_values(range(1, 11))
+    assert d.trimmed_mean(0.8, 1) == pytest.approx(9.5)
+    assert d.trimmed_mean(0, 0.2) == pytest.approx(1.5)
+    assert d.trimmed_mean(0, 1) == pytest.approx(d.mean())
+    # Fractional weights and a tail boundary inside a centroid.
+    d = TDigest()
+    d.update(0, w=0.75)
+    d.update(10, w=0.25)
+    assert d.trimmed_mean(0.5, 1) == pytest.approx(5)
+    assert d.trimmed_mean(0, 0.8) == pytest.approx(0.625)
+    for q1, q2 in [(-0.1, 1), (0, 1.1), (math.nan, 1), (1, 1), (0, 0)]:
+        with pytest.raises(ValueError):
+            d.trimmed_mean(q1, q2)
+    with pytest.raises(ValueError):
+        TDigest().trimmed_mean(0.5, 1)
+
+
 # -------------------------------------------------------------------
-# Deviation tests (mad, std, var, is_normal)
+# Deviation and shape tests (mad, std, var, is_normal, skew, kurtosis)
 # -------------------------------------------------------------------
 def test_mad(sample_values: Sequence[int]) -> None:
     d = TDigest.from_values(sample_values)
@@ -399,14 +417,59 @@ def test_std_var_is_normal() -> None:
     assert d.is_normal()
     assert math.isclose(d.std(), sigma, rel_tol=0.01, abs_tol=ATOL)
     assert math.isclose(d.var(), sigma**2, rel_tol=0.01, abs_tol=ATOL)
-    d = TDigest.from_values([42.0, 42.0, 42.0])
+    d = TDigest.from_values([0.1, 0.1, 0.1])
     assert d.var() == 0.0
+    assert d.std() == 0.0
     d = TDigest.from_values(range(1001))
     assert not d.is_normal()
     with pytest.raises(ValueError):
         TDigest().var()
     with pytest.raises(ValueError):
+        TDigest().std()
+    with pytest.raises(ValueError):
         TDigest().is_normal()
+
+
+def test_skew_kurtosis() -> None:
+    d = TDigest.from_values([1, 2, 3, 4, 5])
+    assert d.skew() == pytest.approx(0, abs=1e-15)
+    assert d.kurtosis() == pytest.approx(-1.3)
+    assert d.kurtosis(excess=False) == pytest.approx(1.7)
+    d = TDigest()
+    d.update(0, w=0.75)
+    d.update(4, w=0.25)
+    assert d.skew() == pytest.approx(2 / math.sqrt(3))
+    assert d.kurtosis() == pytest.approx(-2 / 3)
+    assert d.var() == pytest.approx(3)
+    d = TDigest.from_values([0.1, 0.1, 0.1])
+    assert math.isnan(d.skew())
+    assert math.isnan(d.kurtosis())
+    with pytest.raises(ValueError):
+        TDigest().skew()
+    with pytest.raises(ValueError):
+        TDigest().kurtosis()
+
+
+def test_moments_large_offset() -> None:
+    d = TDigest.from_values([1e16, 1e16, 1e16, 1e16 + 4])
+    assert d.var() == pytest.approx(3)
+    assert d.std() == pytest.approx(math.sqrt(3))
+    assert d.skew() == pytest.approx(2 / math.sqrt(3))
+    assert d.kurtosis() == pytest.approx(-2 / 3)
+
+
+def test_moments_rounded_mean() -> None:
+    # The stored mean rounds toward the rare value; exercise recentering.
+    d = TDigest.from_values(
+        [1e16] + [1e16 + 2] * 100,
+        w=[1e-8] + [1.0] * 100,
+        max_centroids=0,
+    )
+    p = 1e-8 / (100 + 1e-8)
+    m2 = p * (1 - p)  # Bernoulli variance; the values are two units apart.
+    assert d.var() == pytest.approx(4 * m2, rel=1e-10, abs=0)
+    assert d.skew() == pytest.approx((2 * p - 1) / math.sqrt(m2), rel=1e-10)
+    assert d.kurtosis() == pytest.approx(1 / m2 - 6, rel=1e-10)
 
 
 # -------------------------------------------------------------------

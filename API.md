@@ -20,6 +20,8 @@
   - [self.mad()](#selfmad)
   - [self.var()](#selfvar)
   - [self.std()](#selfstd)
+  - [self.skew()](#selfskew)
+  - [self.kurtosis(excess=True)](#selfkurtosisexcesstrue)
   - [self.is_normal()](#selfis_normal)
 - [Vectorized mathematical functions](#vectorized-mathematical-functions)
   - [self.quantile_vec(q)](#selfquantile_vecq)
@@ -298,6 +300,31 @@ digest = TDigest.from_values(normally_distributed_data)
 print(f"Standard deviation: {digest.std():.3f}")
 ```
     Standard deviation: 1.005
+
+#### self.skew()
+
+Estimates the population skewness of the distribution.
+
+```python
+digest = TDigest.from_values([1, 2, 3, 4, 5])
+print(f"Skewness: {digest.skew():.1f}")
+```
+    Skewness: 0.0
+
+#### self.kurtosis(excess=True)
+
+Estimates the population kurtosis of the distribution.
+
+Returns Fisher excess kurtosis by default; set `excess=False` for Pearson kurtosis.
+
+```python
+digest = TDigest.from_values([1, 2, 3, 4, 5])
+
+print(f"Fisher kurtosis: {digest.kurtosis():.1f}")
+print(f"Pearson kurtosis: {digest.kurtosis(excess=False):.1f}")
+```
+    Fisher kurtosis: -1.3
+    Pearson kurtosis: 1.7
 
 #### self.is_normal()
 

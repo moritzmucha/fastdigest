@@ -1051,17 +1051,116 @@ impl TDigest {
             .unwrap_or(f64::NAN)
     }
 
-    /// Estimates population variance using Var(X) = E[X^2] - (E[X])^2.
-    pub fn estimate_var(&self) -> f64 {
-        if self.mass() == 0.0 {
-            return f64::NAN;
+    /// Returns (second moment, requested higher moment, scale), with moments
+    /// computed from (centroid mean - mean) / scale. ORDER=2 skips higher powers.
+    fn estimate_scaled_moments<const ORDER: i32>(&self) -> (f64, f64, f64) {
+        if self.centroids.is_empty() || self.mass() == 0.0 {
+            return (f64::NAN, f64::NAN, f64::NAN);
         }
-        let m2: f64 = self
-            .centroids
-            .iter()
-            .map(|c| c.mean() * c.mean() * c.weight())
-            .sum();
-        m2 / self.mass() - self.mean() * self.mean()
+        // Check the sorted centroid range directly: rounding in sum / mass
+        // can otherwise give constant data a spurious nonzero variance.
+        if self.centroids.len() <= 1
+            || self.centroids[0].mean()
+                == self.centroids[self.centroids.len() - 1].mean()
+        {
+            return (0.0, 0.0, 0.0);
+        }
+        // Use the stored mean only as a nearby origin. Adding a small
+        // correction back to a large origin would round it away again.
+        let mean = self.mean();
+        let origin = if mean.is_finite() {
+            mean
+        } else {
+            self.centroids[self.centroids.len() / 2].mean()
+        };
+        // Centroids are sorted, so the endpoints determine the scale.
+        let scale = (self.centroids[0].mean() - origin).abs().max(
+            (self.centroids[self.centroids.len() - 1].mean() - origin).abs(),
+        );
+        if scale == 0.0 {
+            return (0.0, 0.0, 0.0);
+        }
+
+        // Accumulate moments about a nearby origin in one pass, including
+        // the first moment needed to correct for rounding in the stored mean.
+        // Scaling avoids overflow/underflow in powers of the deviations.
+        let mut m1 = 0.0;
+        let mut m2 = 0.0;
+        let mut m3 = 0.0;
+        let mut mk = 0.0;
+        for centroid in &self.centroids {
+            let delta = (centroid.mean() - origin) / scale;
+            let weight = centroid.weight() / self.mass();
+            let weighted_delta = weight * delta;
+            let weighted_square = weighted_delta * delta;
+            m1 += weighted_delta;
+            m2 += weighted_square;
+            if ORDER > 2 {
+                let weighted_cube = weighted_square * delta;
+                if ORDER == 4 {
+                    m3 += weighted_cube;
+                    mk += weighted_cube * delta;
+                } else {
+                    mk += weighted_cube;
+                }
+            }
+        }
+        // Translate from the nearby origin to the true center without adding
+        // a small correction back to a large, rounded floating-point mean.
+        let m1_squared = m1 * m1;
+        // If the origin is more than roughly one standard deviation from
+        // the center, subtracting moments can lose precision. Recenter
+        // directly in that uncommon case; ordinary queries keep one pass.
+        if m1_squared > 0.5 * m2 {
+            let mut m2_centered = 0.0;
+            let mut mk_centered = 0.0;
+            for centroid in &self.centroids {
+                let delta = (centroid.mean() - origin) / scale - m1;
+                let weighted_square =
+                    (centroid.weight() / self.mass()) * delta * delta;
+                m2_centered += weighted_square;
+                if ORDER == 4 {
+                    mk_centered += weighted_square * delta * delta;
+                } else if ORDER == 3 {
+                    mk_centered += weighted_square * delta;
+                }
+            }
+            return (m2_centered, mk_centered, scale);
+        }
+        let m2_centered = m2 - m1_squared;
+        let mk_centered = if ORDER == 4 {
+            mk - 4.0 * m1 * m3 + 6.0 * m1_squared * m2
+                - 3.0 * m1_squared * m1_squared
+        } else if ORDER == 3 {
+            mk - 3.0 * m1 * m2 + 2.0 * m1 * m1_squared
+        } else {
+            0.0
+        };
+        (m2_centered, mk_centered, scale)
+    }
+
+    /// Estimates the population variance of the distribution.
+    pub fn estimate_var(&self) -> f64 {
+        let (m2_centered, _, scale) = self.estimate_scaled_moments::<2>();
+        (m2_centered * scale) * scale
+    }
+
+    /// Standardized population moment of the weighted centroid means.
+    fn estimate_standardized_moment<const ORDER: i32>(&self) -> f64 {
+        let (m2_centered, mk_centered, _) =
+            self.estimate_scaled_moments::<ORDER>();
+        mk_centered / m2_centered.powf(f64::from(ORDER) / 2.0)
+    }
+
+    /// Estimates the population skewness of the distribution.
+    pub fn estimate_skew(&self) -> f64 {
+        self.estimate_standardized_moment::<3>()
+    }
+
+    /// Estimates the population kurtosis of the distribution.
+    pub fn estimate_kurtosis(&self, excess: bool) -> f64 {
+        self.estimate_standardized_moment::<4>()
+            - if excess { 3.0 } else { 0.0 }
     }
 
     /// Approximate error function (Abramowitz-Stegun 7.1.26).
