@@ -28,6 +28,7 @@ class TDigest:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
             cost of some accuracy. 0 disables compression. Default is 1000.
+        :raises ValueError: If `max_centroids` is negative or exceeds the platform limit.
         """
         ...
 
@@ -49,6 +50,7 @@ class TDigest:
             Number of centroids to maintain. A lower value enables a
             smaller memory footprint and faster computation speed at the
             cost of some accuracy. 0 disables compression. Default is 1000.
+        :raises ValueError: For non-finite values, non-positive or non-finite weights, or invalid `max_centroids`.
         """
         ...
 
@@ -69,6 +71,8 @@ class TDigest:
 
         The dict must have a key "centroids" mapping to a list of centroids.
         Each centroid should be a dict with keys "m" (float) and "c" (float).
+        Other summary fields are optional and are inferred from the centroids
+        when omitted.
 
         :param tdigest_dict: Dict with centroids.
         :return: TDigest instance.
@@ -104,6 +108,8 @@ class TDigest:
         """
         Number of centroids currently in this TDigest.
 
+        Equivalent to `len(digest)`.
+
         :return: Number of centroids.
         """
         ...
@@ -127,9 +133,9 @@ class TDigest:
 
     def sum(self) -> float:
         """
-        Returns the sum of all ingested values.
+        Returns the weighted sum of all ingested values.
 
-        :return: Sum of all values.
+        :return: Weighted sum of all values.
         """
         ...
 
@@ -138,6 +144,7 @@ class TDigest:
         Returns the minimum of all ingested values.
 
         :return: Minimum value.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -146,6 +153,7 @@ class TDigest:
         Returns the maximum of all ingested values.
 
         :return: Maximum value.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -195,6 +203,7 @@ class TDigest:
             Weights. This can be either a sequence of the same length as `x`,
             or a scalar that will be used as the weight for the entire batch.
             If `None` (default), each value has a weight of 1.
+        :raises ValueError: For invalid data or weights, or mismatched lengths in a non-empty batch.
         """
         ...
 
@@ -207,6 +216,7 @@ class TDigest:
 
         :param x: Value to add.
         :param optional w: Weight for `x`. Default is `None` (1).
+        :raises ValueError: If `x` or `w` is invalid.
         """
         ...
 
@@ -219,6 +229,7 @@ class TDigest:
 
         :param q: Float between 0 and 1.
         :return: Estimated quantile value.
+        :raises ValueError: If `q` is outside [0, 1] or the digest is empty.
         """
         ...
 
@@ -231,6 +242,7 @@ class TDigest:
 
         :param q: Sequence of floats between 0 and 1.
         :return: List of estimated quantile values.
+        :raises ValueError: If any value is outside [0, 1] or the digest is empty.
         """
         ...
 
@@ -242,6 +254,7 @@ class TDigest:
 
         :param p: Number between 0 and 100 (cumulative probability in percent).
         :return: Estimated percentile value.
+        :raises ValueError: If `p` is outside [0, 100] or the digest is empty.
         """
         ...
 
@@ -252,6 +265,7 @@ class TDigest:
         Equivalent to `quantile(0.5)`.
 
         :return: Estimated median.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -262,6 +276,7 @@ class TDigest:
         Equivalent to `quantile(0.75) - quantile(0.25)`.
 
         :return: Estimated IQR.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -273,6 +288,7 @@ class TDigest:
 
         :param x: Value for which to compute the CDF.
         :return: Float between 0 and 1 representing cumulative probability.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -284,6 +300,7 @@ class TDigest:
 
         :param x: Sequence of values for which to compute the CDF.
         :return: List of CDF(x) floats between 0 and 1.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -297,14 +314,16 @@ class TDigest:
         :param x1: Lower bound of the interval.
         :param x2: Upper bound of the interval.
         :return: Float between 0 and 1 representing probability.
+        :raises ValueError: If `x1 > x2` or the digest is empty.
         """
         ...
 
     def mean(self) -> float:
         """
-        Returns the arithmetic mean of all ingested values.
+        Returns the weighted arithmetic mean (`sum() / mass()`).
 
         :return: Arithmetic mean.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -316,6 +335,7 @@ class TDigest:
         :param q1: Lower quantile threshold (`0 <= q1 < q2`).
         :param q2: Upper quantile threshold (`q1 < q2 <= 1`).
         :return: Trimmed mean value.
+        :raises ValueError: If the quantile bounds are invalid or the digest is empty.
         """
         ...
 
@@ -324,6 +344,7 @@ class TDigest:
         Estimates the median absolute deviation (MAD) of the distribution.
 
         :return: Estimated MAD.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -332,6 +353,7 @@ class TDigest:
         Estimates the population variance of the distribution.
 
         :return: Estimated population variance.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -342,24 +364,29 @@ class TDigest:
         Equivalent to `var() ** 0.5`.
 
         :return: Estimated standard deviation.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
     def skew(self) -> float:
         """
         Estimates the population skewness of the distribution.
+        Returns `NaN` if centroid variance is zero.
 
         :return: Estimated skewness.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
     def kurtosis(self, excess: bool = True) -> float:
         """
         Estimates the population kurtosis of the distribution.
+        Returns `NaN` if centroid variance is zero.
 
-        :param excess: Return Fisher excess kurtosis (default).
-            Set False for Pearson kurtosis.
+        :param excess: If True (default), return Fisher excess kurtosis;
+            if False, return Pearson kurtosis.
         :return: Estimated kurtosis.
+        :raises ValueError: If the digest is empty.
         """
         ...
 
@@ -368,13 +395,13 @@ class TDigest:
         Performs a Kolmogorov-Smirnov test to determine if the ingested data
         follows a normal distribution.
 
-        The significance level `alpha` controls how strict the test is:
-        - higher `alpha` → more likely to reject normality
-        - lower `alpha` → more likely to accept normality
+        The test returns True when it does not reject normality at level
+        `alpha`.
 
         :param optional alpha:
             Significance level (`0 < alpha < 1`). Default is 0.05.
         :return: True if normal, False otherwise.
+        :raises ValueError: If `alpha` is outside (0, 1) or the digest is empty.
         """
         ...
 
@@ -393,6 +420,7 @@ class TDigest:
         The returned dict contains a "centroids" list, where each centroid
         is represented as a dict with keys "m" and "c".
         It also contains instance parameters such as `max_centroids`.
+        The centroid means and weights are approximate summaries of the data.
 
         :return: Dict representation of the TDigest.
         """
@@ -416,6 +444,8 @@ class TDigest:
         """
         Returns a copy of the TDigest instance.
 
+        Changes to either digest do not affect the other.
+
         :return: Copy of the TDigest instance.
         """
         ...
@@ -424,6 +454,8 @@ class TDigest:
         """
         Returns a copy of the TDigest instance.
 
+        Changes to either digest do not affect the other.
+
         :return: Copy of the TDigest instance.
         """
         ...
@@ -431,6 +463,8 @@ class TDigest:
     def __deepcopy__(self) -> "TDigest":
         """
         Returns a copy of the TDigest instance.
+
+        Changes to either digest do not affect the other.
 
         :return: Copy of the TDigest instance.
         """

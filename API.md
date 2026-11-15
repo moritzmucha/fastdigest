@@ -73,6 +73,10 @@ print(digest)
 
 Creates a TDigest directly from any sequence of numeric values `x`. The optional weights `w` can be either a sequence of the same length as `x`, or a scalar that will be used as the weight for the entire batch.
 
+Values must be finite; weights must be finite and greater than zero.
+
+Raises `ValueError` for non-finite values, non-positive or non-finite weights, a weight sequence with the wrong length, or an invalid `max_centroids`.
+
 Static method.
 
 ```python
@@ -97,7 +101,7 @@ print(f"{digest}: {len(digest)} centroids from {digest.n_values} values")
 
 #### self.mass()
 
-Returns the total amount of values ingested.
+Returns the total amount (sum of weights) of ingested values.
 
 Equivalent to [`float(n_values)`](#selfn_values) if no weighted updates were used.
 
@@ -110,7 +114,7 @@ print(f"Mass: {digest.mass()}")
 
 #### self.sum()
 
-Returns the sum of all ingested values.
+Returns the (weighted) sum of all ingested values.
 
 ```python
 digest = TDigest.from_values(range(11))
@@ -123,6 +127,8 @@ print(f"Sum: {digest.sum()}")
 
 Returns the lowest ingested value.
 
+Raises `ValueError` if the digest is empty.
+
 ```python
 digest = TDigest.from_values(range(11))
 
@@ -133,6 +139,8 @@ print(f"Minimum: {digest.min()}")
 #### self.max()
 
 Returns the highest ingested value.
+
+Raises `ValueError` if the digest is empty.
 
 ```python
 digest = TDigest.from_values(range(11))
@@ -148,6 +156,8 @@ print(f"Maximum: {digest.max()}")
 Estimates the value at the quantile `q` (between 0 and 1).
 
 Inverse function of [`cdf(x)`](#selfcdfx).
+
+Raises `ValueError` if `q` is outside [0, 1] or the digest is empty.
 
 Also available as vectorized [`quantile_vec(q)`](#selfquantile_vecq).
 
@@ -170,6 +180,8 @@ Estimates the value at the `p`th percentile.
 
 Alias for [`quantile(p/100)`](#selfquantileq).
 
+`p` must be between 0 and 100. Raises `ValueError` if it is outside this range or the digest is empty.
+
 ```python
 digest = TDigest.from_values(normally_distributed_data)
 
@@ -185,6 +197,8 @@ Estimates the median value.
 
 Alias for [`quantile(0.5)`](#selfquantileq).
 
+Raises `ValueError` if the digest is empty.
+
 ```python
 digest = TDigest.from_values(normally_distributed_data)
 
@@ -197,6 +211,8 @@ print(f"Median: {digest.median():.3f}")
 Estimates the interquartile range (IQR).
 
 Alias for [`quantile(0.75) - quantile(0.25)`](#selfquantileq).
+
+Raises `ValueError` if the digest is empty.
 
 ```python
 digest = TDigest.from_values(normally_distributed_data)
@@ -213,6 +229,8 @@ Inverse function of [`quantile(q)`](#selfquantileq).
 
 Also available as vectorized [`cdf_vec(x)`](#selfcdf_vecx).
 
+Returns 0 below the observed range and 1 above it. Raises `ValueError` if the digest is empty.
+
 ```python
 digest = TDigest.from_values(normally_distributed_data)
 
@@ -228,6 +246,8 @@ Estimates the probability of finding a value in the interval [`x1`, `x2`].
 
 Alias for [`cdf(x2) - cdf(x1)`](#selfcdfx).
 
+Requires `x1 <= x2` and raises `ValueError` for an empty digest.
+
 ```python
 digest = TDigest.from_values(normally_distributed_data)
 prob = digest.probability(-2.0, 2.0)
@@ -239,7 +259,7 @@ print(f"Probability of value between ±2: {prob_pct:.1f}%")
 
 #### self.mean()
 
-Calculates the arithmetic mean of the distribution as [`sum()`](#selfsum)`/`[`mass()`](#selfmass).
+Calculates the weighted arithmetic mean as [`sum()`](#selfsum)`/`[`mass()`](#selfmass). Raises `ValueError` if the digest is empty.
 
 ```python
 digest = TDigest.from_values(range(11))
@@ -251,6 +271,8 @@ print(f"Mean value: {digest.mean()}")
 #### self.trimmed_mean(q1, q2)
 
 Estimates the truncated mean between the two quantiles `q1` and `q2`.
+
+Requires `0 <= q1 < q2 <= 1`; raises `ValueError` for invalid bounds or an empty digest.
 
 ```python
 data = list(range(11))
@@ -265,9 +287,18 @@ print(f"Trimmed mean: {trimmed_mean}")
             Mean: 9095.0
     Trimmed mean: 5.0
 
+This method can also be used to calculate the **tail conditional expectation (TCE)**, also known as **Expected Shortfall (ES)** or **Conditional Value at Risk (CVaR)**, by setting one quantile bound to the end of the distribution. For example, $\textrm{ES}_{0.95}$ of the previous data:
+
+```python
+print(f"Tail expectation: {digest.trimmed_mean(0.95, 1):.1f}")
+```
+    Tail expectation: 100000.0
+
 #### self.mad()
 
 Estimates the median absolute deviation (MAD) of the distribution.
+
+Raises `ValueError` if the digest is empty.
 
 ```python
 digest = TDigest.from_values(range(101))
@@ -279,6 +310,8 @@ print(f"MAD: {digest.mad()}")
 #### self.var()
 
 Estimates the population variance of the distribution.
+
+Raises `ValueError` if the digest is empty.
 
 ```python
 normally_distributed_data = np.random.normal(0, 1, 10_000)
@@ -294,6 +327,8 @@ Estimates the standard deviation of the distribution.
 
 Alias for [`var() ** 0.5`](#selfvar).
 
+Raises `ValueError` if the digest is empty.
+
 ```python
 digest = TDigest.from_values(normally_distributed_data)
 
@@ -304,6 +339,8 @@ print(f"Standard deviation: {digest.std():.3f}")
 #### self.skew()
 
 Estimates the population skewness of the distribution.
+
+Returns `NaN` if variance is zero. Raises `ValueError` if the digest is empty.
 
 ```python
 digest = TDigest.from_values([1, 2, 3, 4, 5])
@@ -317,6 +354,8 @@ Estimates the population kurtosis of the distribution.
 
 Returns Fisher excess kurtosis by default; set `excess=False` for Pearson kurtosis.
 
+Returns `NaN` if variance is zero. Raises `ValueError` if the digest is empty.
+
 ```python
 digest = TDigest.from_values([1, 2, 3, 4, 5])
 
@@ -329,6 +368,8 @@ print(f"Pearson kurtosis: {digest.kurtosis(excess=False):.1f}")
 #### self.is_normal()
 
 Performs a Kolmogorov-Smirnov test to determine if the ingested data follows a normal distribution.
+
+Returns `True` when the test does not reject normality at the chosen significance level. `alpha` must be strictly between 0 and 1; an empty digest raises `ValueError`.
 
 ```python
 normally_distributed_data = np.random.normal(0, 1, 10_000)
@@ -347,12 +388,13 @@ print(skewed_digest.is_normal())
 
 ### Vectorized mathematical functions
 
-These methods take a sequence (e.g. list, array) argument and return the results as a list.
-They are significantly faster than looping over [`quantile(q)`](#selfquantileq)/[`cdf(x)`](#selfcdfx) when estimating many ($n \gg 1$) values at once.
+These methods take a sequence (e.g. list, array) argument and return the results as a list. They are significantly faster than looping over [`quantile(q)`](#selfquantileq)/[`cdf(x)`](#selfcdfx) when estimating many ($n \gg 1$) values at once.
 
 #### self.quantile_vec(q)
 
 Estimates the values at the quantiles `q` (between 0 and 1).
+
+Raises `ValueError` if any quantile is outside [0, 1] or the digest is empty.
 
 ```python
 from fastdigest import TDigest
@@ -367,6 +409,8 @@ print(results)
 
 Estimates the relative ranks (cumulative probabilities) of the values `x`.
 
+Returns 0 below the observed range and 1 above it. Raises `ValueError` if the digest is empty.
+
 ```python
 digest = TDigest.from_values(range(41))
 results = digest.cdf_vec([10, 20, 30])
@@ -379,6 +423,10 @@ print(results)
 #### self.update(x, w=None)
 
 Updates a digest in-place with a single value `x`, with optional weight `w`.
+
+Values and weights must be finite, and weights must be greater than zero.
+
+Raises `ValueError` for a non-finite value, a non-positive or non-finite weight, or an invalid `max_centroids`.
 
 ```python
 from fastdigest import TDigest
@@ -396,6 +444,10 @@ print(f"{digest}: {digest.n_values} values, combined weight of {digest.mass()}")
 #### self.batch_update(x, w=None)
 
 Updates a digest in-place by merging a sequence of many values `x` at once. The optional weights `w` can be either a sequence of the same length as `x`, or a scalar that will be used as the weight for the entire batch.
+
+For a non-empty batch, values and weights must be finite, weights must be greater than zero, and a weight sequence must match the length of `x`. An empty sequence is a no-op.
+
+Raises `ValueError` for non-finite values, non-positive or non-finite weights, or mismatched lengths in a non-empty batch.
 
 ```python
 import numpy as np
@@ -522,8 +574,8 @@ print(json.dumps(tdigest_dict, indent=2))
 ```
 
 > **Note:** In the "centroids" list, each centroid is represented as a dict with keys "m" (mean) and "c" (count/weight).
-The "max_centroids", "mass", "sum", "min", "max" and "n_values" keys are optional — if missing, their values are inferred from the centroids/set to default.
-This allows full backward compatibility with dicts created by the *tdigest* Python library.
+>
+> The "max_centroids", "mass", "sum", "min", "max" and "n_values" keys are optional — if missing, their values are inferred from the centroids/set to default. This allows full backward compatibility with dicts created by the *tdigest* Python library.
 
 #### TDigest.from_dict(tdigest_dict)
 
@@ -603,11 +655,14 @@ Returns the `max_centroids` parameter. Can also be assigned to, changing future 
 #### self.n_values
 
 Returns the total number of individual ingested values (disregarding weights).
+
 Integer equivalent of [`mass()`](#selfmass) if no weighted updates were used.
 
 #### self.n_centroids
 
 Returns the number of centroids in the digest.
+
+Alias: [`len(digest)`](#magic-methods--operators)
 
 #### self.centroids
 
