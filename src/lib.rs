@@ -386,11 +386,16 @@ impl PyTDigest {
 
     /// Updates the digest (in-place) with a single float value.
     #[pyo3(signature = (x, w=None))]
-    pub fn update(&self, x: f64, w: Option<f64>) -> PyResult<()> {
+    pub fn update(
+        &self,
+        py: Python<'_>,
+        x: f64,
+        w: Option<f64>,
+    ) -> PyResult<()> {
         validate_value(x)?;
         let weight = validate_weight(w.unwrap_or(1.0))?;
         let mut state = lock_state(self)?;
-        record_observation(&mut state, x, weight)?;
+        record_observation(py, &mut state, x, weight)?;
         Ok(())
     }
 
@@ -716,6 +721,7 @@ pub fn merge_all(
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline(always)]
 fn record_observation(
+    py: Python<'_>,
     state: &mut TDigestState,
     observation: f64,
     weight: f64,
@@ -727,7 +733,7 @@ fn record_observation(
     }
     state.i += 1;
     if state.i == CACHE_SIZE {
-        flush_cache(state)?;
+        py.detach(|| flush_cache(state))?;
     }
     Ok(())
 }

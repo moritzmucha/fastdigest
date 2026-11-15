@@ -133,6 +133,31 @@ def self_merges():
     assert digest.n_values == 2**17
 
 
+def scalar_update_cache_flushes():
+    values = 4096
+    expected_sum = sum(i % 17 for i in range(values))
+    digests = [TDigest() for _ in range(4)]
+    weights = [1.0, 2.0, 1.0, 2.0]
+
+    def update(digest, weight):
+        for i in range(values):
+            digest.update(float(i % 17), weight)
+
+    run_workers(
+        *(
+            lambda digest=digest, weight=weight: update(digest, weight)
+            for digest, weight in zip(digests, weights)
+        )
+    )
+
+    for digest, weight in zip(digests, weights):
+        assert digest.n_values == values
+        assert digest.mass() == values * weight
+        assert digest.sum() == expected_sum * weight
+        assert digest.min() == 0.0
+        assert digest.max() == 16.0
+
+
 def gil_progress(method):
     values = [float(i % 7919) for i in range(100_000)]
     digest = TDigest.from_values(values, max_centroids=20_000)
@@ -183,7 +208,13 @@ def run_in_subprocess(*args):
 
 @pytest.mark.parametrize(
     "scenario",
-    ["independent_digests", "shared_updates", "opposing_merges", "self_merges"],
+    [
+        "independent_digests",
+        "shared_updates",
+        "opposing_merges",
+        "self_merges",
+        "scalar_update_cache_flushes",
+    ],
 )
 def test_concurrent_digests(scenario):
     run_in_subprocess(scenario)
@@ -191,7 +222,13 @@ def test_concurrent_digests(scenario):
 
 @pytest.mark.parametrize(
     "method",
-    ["from_values", "batch_update", "merge", "merge_inplace", "merge_all"],
+    [
+        "from_values",
+        "batch_update",
+        "merge",
+        "merge_inplace",
+        "merge_all",
+    ],
 )
 def test_releases_gil(method):
     if sys.implementation.name != "cpython":
