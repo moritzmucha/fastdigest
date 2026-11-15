@@ -14,7 +14,6 @@ Apache-2.0 OR MIT:
 - bitflags (The Rust Project Developers)
 - cfg-if (Alex Crichton <alex@alexcrichton.com>)
 - heck
-- indoc (David Tolnay <dtolnay@gmail.com>)
 - libc (The Rust Project Developers)
 - lock_api (Amanieu d'Antras <amanieu@gmail.com>)
 - num-traits (The Rust Project Developers)
@@ -32,14 +31,12 @@ Apache-2.0 OR MIT:
 - scopeguard (bluss)
 - smallvec (The Servo Project Developers)
 - syn (David Tolnay <dtolnay@gmail.com>)
-- unindent (David Tolnay <dtolnay@gmail.com>)
 - windows-link
 
 Apache-2.0 WITH LLVM-exception:
 - target-lexicon (Dan Gohman <sunfish@mozilla.com>)
 
 MIT:
-- memoffset (Gilad Naaman <gilad.naaman@gmail.com>)
 - ordered-float (Jonathan Reem <jonathan.reem@gmail.com>|Matt Brubeck <mbrubeck@limpet.net>)
 - redox_syscall (Jeremy Soller <jackpot51@gmail.com>)
 - tdigests (Andy Lok)
