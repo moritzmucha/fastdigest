@@ -26,12 +26,12 @@
 
 ## Features
 
-- **Online statistics**: Compute highly accurate estimates of quantiles, the CDF, the trimmed mean, MAD, and more.
+- **Online statistics**: Estimate quantiles, the CDF, (conditional) mean, MAD, and more.
 - **Updating**: Update a t-digest incrementally with streaming data or batches of large datasets.
 - **Merging**: Merge many t-digests into one, enabling parallel compute operations such as map-reduce.
 - **Serialization**: Transform t-digests to/from dict or binary format, or simply use the `pickle` module.
 - **Easy API**: The *fastDigest* API is designed to be intuitive and to keep high overlap with popular libraries.
-- **Blazing fast**: Thanks to its Rust backbone, this module is up to hundreds of times faster than other Python implementations.
+- **Blazing fast**: Rust-powered performance, up to hundreds of times faster than other Python implementations.
 
 ## Installation
 
@@ -46,7 +46,8 @@ pip install fastdigest
 ### Installing from source
 
 Install Python 3.10+ and [Rust](https://rustup.rs), then download or clone this repository and open a terminal in its root directory.
-Then you can either:
+
+Now, you can either:
 
 - Directly build and install *fastDigest* in your active Python environment in a single step:
 
